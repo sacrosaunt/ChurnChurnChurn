@@ -518,9 +518,13 @@ def create_backup():
         return jsonify({'error': 'Failed to create backup'}), 500
 
 
-if __name__ == '__main__':
+def main():
+    """Main function for running the application."""
     def open_browser():
         webbrowser.open_new('http://127.0.0.1:5000/')
     threading.Timer(1, open_browser).start()
 
     app.run(debug=True, use_reloader=False)
+
+if __name__ == '__main__':
+    main()
