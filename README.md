@@ -23,6 +23,8 @@ That's where ChurnChurnChurn comes in. This tool is designed to be your personal
 
 Whether you're new to churning or a seasoned pro, ChurnChurnChurn helps you maximize your rewards and minimize the hassle.
 
+Check out [Doctor of Credit](https://www.doctorofcredit.com/best-bank-account-bonuses/) for a great resource on ongoing bonuses and bypassing direct deposit requirements.
+
 <p align="center">
   <img src="single-offer.png" width="800" alt="Single Offer View">
   <br>
