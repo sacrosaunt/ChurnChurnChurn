@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const TEXT_CONTENT = {
         planning: {
             title: 'Smart Planning',
-            subtitle: 'Get ROI-based recommendations prioritizing multi-month offers while considering expiration dates',
+            subtitle: 'ChurnChurnChurn offers ROI-based recommendations, prioritizing multi-month offers while considering expiration dates.',
             payCycleLabel: 'Pay Cycle Duration (days)',
             paycheckLabel: 'Average Paycheck Amount',
             accountsPerPaycycleLabel: 'Accounts per Pay Cycle',

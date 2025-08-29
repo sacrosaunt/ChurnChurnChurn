@@ -2,9 +2,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- TEXT CONFIGURATION ---
     const TEXT_CONTENT = {
         app: {
-            title: 'Bank Churning Tracker',
-            mainTitle: 'Bank Offer Dashboard',
-            subtitle: 'Add and track your bank account bonus offers.',
+            title: 'ChurnChurnChurn',
+            mainTitle: 'Dashboard',
+            subtitle: 'Track and manage your bank account bonus offers with ChurnChurnChurn.',
             addOfferTitle: 'Add New Offer',
             urlInputPlaceholder: 'Paste a bank offer URL here...',
             submitButtonText: 'Add Offer',
