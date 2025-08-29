@@ -20,7 +20,7 @@ from src.core.offer_processing import (
     check_existing_accounts_with_same_bank,
 )
 from src.core.scraping import scrape_and_process_url, process_manual_content
-from src.core.planning_logic import PlanningLogic
+from src.core.plan_generation import PlanGeneration
 from src.utils.config import FIELD_EXTRACTION_TASKS
 
 
@@ -493,7 +493,7 @@ def generate_plan():
         
         # Generate plan using the planning logic
         try:
-            plan = PlanningLogic.generate_plan(offers, pay_cycle_days, average_paycheck, accounts_per_paycycle)
+            plan = PlanGeneration.generate_plan(offers, pay_cycle_days, average_paycheck, accounts_per_paycycle)
         except Exception as planning_error:
             print(f"Error in planning logic: {planning_error}")
             return jsonify({'error': f'Planning calculation failed: {str(planning_error)}'}), 500
