@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="app-title-tag"></title> 
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div id="app-container" class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-5xl">
+        <div id="list-view">
+            <header class="mb-8 pt-8">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 id="main-title" class="text-3xl font-bold text-gray-900"></h1>
+                        <p id="main-subtitle" class="text-gray-600 mt-1"></p>
+                    </div>
+                    <a href="/planning" class="bg-green-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200">
+                        Smart Planning
+                    </a>
+                </div>
+            </header>
+
+            <div id="summary-stats" class="grid grid-cols-2 gap-4 mb-8">
+                <div class="bg-white p-4 rounded-lg shadow-md text-center">
+                    <p id="total-claimed-label" class="text-sm font-medium text-gray-500"></p> <p id="total-claimed" class="text-3xl font-bold text-green-600">$0</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-md text-center">
+                    <p id="total-pending-label" class="text-sm font-medium text-gray-500"></p> <p id="total-pending" class="text-3xl font-bold text-yellow-600">$0</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+                <h2 id="add-offer-title" class="text-xl font-semibold mb-4"></h2> 
+                
+                <!-- Mode Toggle -->
+                <div class="mb-4">
+                    <div class="flex items-center space-x-4">
+                        <label class="flex items-center">
+                            <span class="text-sm font-medium text-gray-700 mr-3">Automatic</span>
+                            <div class="relative inline-block w-12 h-6">
+                                <input type="checkbox" id="mode-toggle" class="sr-only peer">
+                                <label for="mode-toggle" class="block w-12 h-6 bg-gray-300 rounded-full cursor-pointer transition-colors duration-200 ease-in-out peer-checked:bg-blue-600">
+                                    <span class="block w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-200 ease-in-out translate-x-0.5 translate-y-0.5 peer-checked:translate-x-6"></span>
+                                </label>
+                            </div>
+                            <span class="text-sm font-medium text-gray-700 ml-3">Manual</span>
+                        </label>
+                    </div>
+                </div>
+                
+
+                
+                <form id="add-offer-form">
+                    <!-- URL Input (default mode) -->
+                    <div id="url-input-container" class="flex flex-col sm:flex-row gap-4">
+                        <input type="url" id="url-input" required class="flex-grow w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="Paste a bank offer URL here..."> 
+                        <button type="submit" id="submit-button" class="bg-blue-600 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 flex-shrink-0">
+                            <span id="submit-button-text"></span> 
+                            <svg id="submit-spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <!-- Manual Content Input (hidden by default) -->
+                    <div id="manual-input-container" class="hidden">
+                        <div class="mb-4">
+                            <label for="manual-content" class="block text-sm font-medium text-gray-700 mb-2">Website Content</label>
+                            <textarea id="manual-content" rows="8" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-vertical" placeholder="Paste the website content, HTML, or text here..."></textarea>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" id="manual-submit-button" class="bg-blue-600 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
+                                <span id="manual-submit-button-text">Process Content</span> 
+                                <svg id="manual-submit-spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="p-4 border-b border-gray-200 bg-gray-50">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="flex items-center gap-2">
+                                <label for="filter-select" class="text-sm font-medium text-gray-700" id="filter-label"></label>
+                                <select id="filter-select" class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm">
+                                    <option value="all" id="filter-all"></option>
+                                    <option value="bonus" id="filter-bonus"></option>
+                                    <option value="expiration" id="filter-expiration"></option>
+                                    <option value="status" id="filter-status"></option>
+                                </select>
+                            </div>
+                            <button id="sort-order-btn" class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm hover:bg-gray-50 transition-colors">
+                                <span id="sort-order-text"></span>
+                                <svg id="sort-order-icon" class="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="offers-list">
+                    </div>
+                 <div id="no-offers-message" class="text-center p-8 text-gray-500">
+                    <p id="no-offers-text"></p> </div>
+            </div>
+        </div>
+
+        <div id="detail-view" class="hidden">
+            </div>
+    </div>
+
+    <script src="/static/script.js" defer></script>
+</body>
+</html>

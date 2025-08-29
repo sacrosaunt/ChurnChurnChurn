@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Churning Tracker - Planning</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div id="app-container" class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
+        <header class="mb-8 pt-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Smart Planning</h1>
+                    <p class="text-gray-600 mt-1">Get ROI-based recommendations prioritizing multi-month offers while considering expiration dates</p>
+                </div>
+                <a href="/" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
+                    ← Back to Dashboard
+                </a>
+            </div>
+        </header>
+
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Planning Parameters</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label for="pay-cycle-days" class="block text-sm font-medium text-gray-700 mb-2">
+                        Pay Cycle Duration (days)
+                    </label>
+                    <input type="number" id="pay-cycle-days" min="7" max="31" value="14" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="average-paycheck" class="block text-sm font-medium text-gray-700 mb-2">
+                        Average Paycheck Amount
+                    </label>
+                    <input type="number" id="average-paycheck" min="100" step="100" value="2000" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="accounts-per-paycycle" class="block text-sm font-medium text-gray-700 mb-2">
+                        Accounts per Pay Cycle
+                    </label>
+                    <input type="number" id="accounts-per-paycycle" min="1" max="10" value="2" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <button id="generate-plan-btn" class="bg-blue-600 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
+                    Generate Plan
+                </button>
+            </div>
+            
+            <!-- Progress Bar (hidden by default) -->
+            <div id="planning-progress" class="hidden mt-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-gray-700" id="progress-text">Analyzing offers...</span>
+                    <span class="text-sm text-gray-500" id="progress-percentage">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="planning-results" class="hidden">
+            <!-- Results will be populated here -->
+        </div>
+
+        <div id="no-unopened-offers" class="hidden bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-r-lg">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700">
+                        No unopened offers available for planning. Add some offers first!
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/planning.js" defer></script>
+</body>
+</html> 

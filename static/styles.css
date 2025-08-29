@@ -1,0 +1,259 @@
+body { 
+    font-family: 'Inter', sans-serif; 
+}
+
+.status-unopened { 
+    background-color: #e0f2fe; 
+    color: #0c4a6e; 
+}
+
+.status-pending-deposit { 
+    background-color: #fef3c7; 
+    color: #92400e; 
+}
+
+.status-waiting { 
+    background-color: #fef9c3; 
+    color: #854d0e; 
+}
+
+.status-claimed { 
+    background-color: #dcfce7; 
+    color: #166534; 
+}
+
+.status-processing { 
+    background-color: #f3f4f6; 
+    color: #4b5563; 
+}
+
+.status-failed { 
+    background-color: #fee2e2; 
+    color: #991b1b; 
+}
+
+.skeleton-loader {
+    position: relative;
+    overflow: hidden;
+    background-color: #e5e7eb; /* gray-200 */
+    border-radius: 0.25rem;
+}
+
+.skeleton-loader::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0.2) 20%, rgba(255, 255, 255, 0.5) 60%, rgba(255, 255, 255, 0));
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* Fade in and glide up animations */
+@keyframes fadeInGlideUp {
+    0% {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-glide-up-delay-0 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.fade-in-glide-up-delay-1 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.05s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-2 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-3 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.15s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-4 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-5 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.25s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-6 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-7 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.35s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-8 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.4s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-9 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.45s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-10 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.5s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-11 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.55s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-12 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.6s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-13 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.65s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-14 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.7s forwards;
+    opacity: 0;
+}
+
+.fade-in-glide-up-delay-15 {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.75s forwards;
+    opacity: 0;
+}
+
+/* Enhanced refresh button styles */
+.refresh-button {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.refresh-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.refresh-button:active {
+    transform: scale(0.95);
+}
+
+/* Considerations container specific styles */
+.considerations-container .refresh-button {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+}
+
+.considerations-container:hover .refresh-button {
+    opacity: 1;
+}
+
+/* Ensure refresh buttons are properly centered */
+.refresh-button svg {
+    display: block;
+    margin: 0 auto;
+}
+
+/* Value-level animation */
+.metric-value.fade-in-glide-up {
+    animation: fadeInGlideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    color: #3b82f6; /* Blue color during animation */
+}
+
+.consideration-line.fade-in-glide-up {
+    animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Smooth color transition back to original color */
+.metric-value {
+    transition: color 0.4s ease-out;
+}
+
+.metric-value.fade-in-glide-up:not(.fade-in-glide-up) {
+    color: inherit; /* Return to original color after animation */
+}
+
+/* Apply same transition to considerations content */
+.considerations-container div:not(.refresh-progress):not(.flex) {
+    transition: color 0.4s ease-out;
+}
+
+/* Blue color animation for considerations content */
+.considerations-container div:not(.refresh-progress):not(.flex).fade-in-glide-up {
+    color: #3b82f6; /* Blue color during animation */
+}
+
+.consideration-line {
+    display: block;
+}
+
+/* Toggle switch styles */
+.peer:checked ~ label {
+    background-color: #2563eb;
+}
+
+.peer:checked ~ label span {
+    transform: translateX(1.5rem);
+}
+
+/* Ensure the toggle switch works properly */
+.peer:checked ~ label {
+    background-color: #2563eb !important;
+}
+
+.peer:checked ~ label span {
+    transform: translateX(1.5rem) !important;
+}
+
+/* Make sure the toggle is clickable */
+input[type="checkbox"].sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Clawback tooltip styles */
+.clawback-tooltip {
+    max-width: 200px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.clawback-icon:hover .clawback-tooltip {
+    opacity: 1 !important;
+}
+
+.metric-tile:hover .clawback-tooltip {
+    opacity: 1 !important;
+} 
