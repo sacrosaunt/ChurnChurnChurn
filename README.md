@@ -23,6 +23,12 @@ That's where ChurnChurnChurn comes in. This tool is designed to be your personal
 
 Whether you're new to churning or a seasoned pro, ChurnChurnChurn helps you maximize your rewards and minimize the hassle.
 
+<p align="center">
+  <img src="single-offer.png" width="800" alt="Single Offer View">
+  <br>
+  <em>A view of a single tracked offer.</em>
+</p>
+
 ## Quick Start
 
 ### 0. Prerequisites
