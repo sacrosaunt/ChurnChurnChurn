@@ -8,8 +8,17 @@ import os
 import shutil
 import zipfile
 import tarfile
+import re
 from pathlib import Path
 from datetime import datetime
+
+def get_app_version():
+    """Reads the version from src/__init__.py to avoid importing the package."""
+    init_py = Path("src/__init__.py").read_text()
+    match = re.search(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", init_py, re.M)
+    if match:
+        return match.group(1)
+    raise RuntimeError("Unable to find version string in src/__init__.py.")
 
 def create_distribution():
     """Create a distributable package."""
@@ -22,7 +31,8 @@ def create_distribution():
     dist_dir.mkdir()
     
     # Create package directory
-    package_name = f"churnchurnchurn-{datetime.now().strftime('%Y%m%d')}"
+    version = get_app_version()
+    package_name = f"ChurnChurnChurn-{version}"
     package_dir = dist_dir / package_name
     package_dir.mkdir()
     
