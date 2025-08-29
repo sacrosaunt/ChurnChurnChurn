@@ -519,16 +519,6 @@ def create_backup():
 
 
 if __name__ == '__main__':
-    if not os.path.exists('templates'):
-        os.makedirs('templates')
-    if not os.path.exists('static'):
-        os.makedirs('static')
-    
-    if os.path.exists('index.html') and not os.path.exists('templates/index.html'):
-        os.rename('index.html', 'templates/index.html')
-    if os.path.exists('script.js') and not os.path.exists('static/script.js'):
-        os.rename('script.js', 'static/script.js')
-    
     def open_browser():
         webbrowser.open_new('http://127.0.0.1:5000/')
     threading.Timer(1, open_browser).start()
