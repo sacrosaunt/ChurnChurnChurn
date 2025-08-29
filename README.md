@@ -45,21 +45,7 @@ Install the required Python packages using pip and the `requirements.txt` file:
 pip install -r requirements.txt
 ```
 
-### 4. Environment Variables
-
-This project requires API keys for AI services. You'll need to set them as environment variables.
-
-1.  Create a file named `.env` in the root of the project directory.
-2.  Add your API keys to the `.env` file in the following format:
-
-    ```
-    GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-    OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
-    ```
-
-    Replace `"YOUR_GEMINI_API_KEY"` and `"YOUR_OPENAI_API_KEY"` with your actual API keys. The application uses `python-dotenv` to load these variables automatically.
-
-### 5. Running the Application
+### 4. Running the Application
 
 Once the setup is complete, you can run the Flask application:
 
@@ -67,4 +53,12 @@ Once the setup is complete, you can run the Flask application:
 python app.py
 ```
 
-The application will be available at `http://127.0.0.1:5000`.
+The application will automatically open in a new browser tab at `http://127.0.0.1:5000`.
+
+### 5. API Key Setup
+
+On the first run, you will be redirected to a setup page to enter your API keys.
+
+-   You need to provide at least one key (either OpenAI or Gemini) to use the application.
+-   The keys are stored locally and securely in the `data` directory.
+-   After submitting your keys, the application will be ready to use.
