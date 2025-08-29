@@ -1,10 +1,10 @@
 import threading
 import time
 from urllib.parse import urlparse
-from utils import normalize_url_for_comparison
-from data_manager import offers, save_offer
-from ai_clients import call_gemini, call_ai, flash_model, pro_model, openai_model_default
-from config import FIELD_EXTRACTION_TASKS, CONTEXT_SIZE
+from src.utils.utils import normalize_url_for_comparison
+from src.data.data_manager import offers, save_offer
+from src.services.ai_clients import call_gemini, call_ai, flash_model, pro_model, openai_model_default
+from src.utils.config import FIELD_EXTRACTION_TASKS, CONTEXT_SIZE
 
 def check_existing_accounts_with_same_bank(bank_name, current_offer_id):
     """Check if user has any opened accounts with the same bank."""

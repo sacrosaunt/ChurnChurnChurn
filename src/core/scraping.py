@@ -2,10 +2,10 @@ import requests
 import random
 import time
 from bs4 import BeautifulSoup
-from data_manager import offers, save_offer
-from ai_clients import is_banking_offer_page, call_gemini, pro_model
-from offer_processing import extract_offer_details_with_ai
-from config import USER_AGENTS, CONTEXT_SIZE
+from src.data.data_manager import offers, save_offer
+from src.services.ai_clients import is_banking_offer_page, call_gemini, pro_model
+from src.core.offer_processing import extract_offer_details_with_ai
+from src.utils.config import USER_AGENTS, CONTEXT_SIZE
 
 def scrape_and_process_url(url, offer_id):
     """Scrapes, summarizes, and triggers the AI extraction process."""

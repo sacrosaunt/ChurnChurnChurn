@@ -5,9 +5,9 @@ import re
 from flask import Flask, jsonify, request, render_template, send_from_directory, redirect, url_for
 from dotenv import load_dotenv
 
-from key_management import save_api_keys, load_api_keys
-from ai_clients import initialize_ai_clients, flash_model, pro_model
-from data_manager import (
+from src.utils.key_management import save_api_keys, load_api_keys
+from src.services.ai_clients import initialize_ai_clients, flash_model, pro_model
+from src.data.data_manager import (
     offers,
     next_offer_id,
     save_offer,
@@ -15,13 +15,13 @@ from data_manager import (
     backup_offers,
     get_storage_stats,
 )
-from offer_processing import (
+from src.core.offer_processing import (
     check_duplicate_offer,
     check_existing_accounts_with_same_bank,
 )
-from scraping import scrape_and_process_url, process_manual_content
-from planning_logic import PlanningLogic
-from config import FIELD_EXTRACTION_TASKS
+from src.core.scraping import scrape_and_process_url, process_manual_content
+from src.core.planning_logic import PlanningLogic
+from src.utils.config import FIELD_EXTRACTION_TASKS
 
 
 load_dotenv()

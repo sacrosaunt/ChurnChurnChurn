@@ -1,8 +1,8 @@
 import os
 import google.generativeai as genai
 from openai import OpenAI
-from key_management import load_api_keys
-from config import SHORT_PROMPT_MAX_TOKENS, LONG_PROMPT_MAX_TOKENS, CONTEXT_SIZE
+from src.utils.key_management import load_api_keys
+from src.utils.config import SHORT_PROMPT_MAX_TOKENS, LONG_PROMPT_MAX_TOKENS, CONTEXT_SIZE
 
 # --- Global AI Clients ---
 client = None
