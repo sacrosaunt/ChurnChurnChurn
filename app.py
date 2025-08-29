@@ -1,4 +1,5 @@
 import os
+import webbrowser
 import threading
 import google.generativeai as genai
 from flask import Flask, jsonify, request, render_template, send_from_directory
@@ -1167,4 +1168,8 @@ if __name__ == '__main__':
     if os.path.exists('script.js') and not os.path.exists('static/script.js'):
         os.rename('script.js', 'static/script.js')
     
+    def open_browser():
+        webbrowser.open_new('http://127.0.0.1:5000/')
+
+    threading.Timer(1, open_browser).start()
     app.run(debug=True, use_reloader=False)
