@@ -139,22 +139,6 @@ def load_offers():
         print(f"❌ Error loading next ID: {e}")
         next_offer_id = 1
 
-def save_offers():
-    """Save offers to local storage."""
-    try:
-        # Convert offers to JSON-serializable format
-        offers_data = {str(k): v for k, v in offers.items()}
-        
-        with open(OFFERS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(offers_data, f, indent=2, ensure_ascii=False)
-        
-        with open(NEXT_ID_FILE, 'w') as f:
-            f.write(str(next_offer_id))
-        
-        print(f"💾 Saved {len(offers)} offers to storage")
-    except Exception as e:
-        print(f"❌ Error saving offers: {e}")
-
 def save_offer(offer_id):
     """Save a single offer to storage."""
     try:
