@@ -2,7 +2,7 @@ import os
 import webbrowser
 import threading
 import google.generativeai as genai
-from flask import Flask, jsonify, request, render_template, send_from_directory
+from flask import Flask, jsonify, request, render_template, send_from_directory, redirect, url_for
 import requests
 from bs4 import BeautifulSoup
 import time
@@ -12,10 +12,120 @@ import json
 import pickle
 from openai import OpenAI
 from dotenv import load_dotenv
+from cryptography.fernet import Fernet
+import sys
 
 load_dotenv()
 
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+# --- Global AI Clients ---
+client = None
+flash_model = None
+pro_model = None
+openai_model_default = "gpt-4.1"
+OPENAI_ENABLED = False
+
+# --- Key Management ---
+KEYS_FILE = 'data/api_keys.key'
+ENCRYPTION_KEY_FILE = 'data/encryption.key'
+
+def generate_encryption_key():
+    """Generate and save an encryption key."""
+    key = Fernet.generate_key()
+    with open(ENCRYPTION_KEY_FILE, 'wb') as f:
+        f.write(key)
+    return key
+
+def load_encryption_key():
+    """Load the encryption key from file."""
+    if os.path.exists(ENCRYPTION_KEY_FILE):
+        with open(ENCRYPTION_KEY_FILE, 'rb') as f:
+            return f.read()
+    return None
+
+def save_api_keys(openai_key, gemini_key):
+    """Encrypt and save API keys."""
+    encryption_key = load_encryption_key()
+    if not encryption_key:
+        encryption_key = generate_encryption_key()
+    
+    fernet = Fernet(encryption_key)
+    encrypted_openai = fernet.encrypt(openai_key.encode())
+    encrypted_gemini = fernet.encrypt(gemini_key.encode())
+    
+    keys = {
+        'openai_api_key': encrypted_openai,
+        'gemini_api_key': encrypted_gemini
+    }
+    
+    with open(KEYS_FILE, 'wb') as f:
+        pickle.dump(keys, f)
+
+def load_api_keys():
+    """Load and decrypt API keys."""
+    encryption_key = load_encryption_key()
+    if not encryption_key or not os.path.exists(KEYS_FILE):
+        return None, None
+        
+    fernet = Fernet(encryption_key)
+    with open(KEYS_FILE, 'rb') as f:
+        keys = pickle.load(f)
+        
+    openai_key = fernet.decrypt(keys['openai_api_key']).decode()
+    gemini_key = fernet.decrypt(keys['gemini_api_key']).decode()
+    
+    return openai_key, gemini_key
+
+# --- AI Configuration ---
+def initialize_ai_clients():
+    """Load API keys and initialize AI clients."""
+    global client, flash_model, pro_model, OPENAI_ENABLED
+    
+    openai_api_key, gemini_api_key = load_api_keys()
+    
+    if openai_api_key:
+        os.environ['OPENAI_API_KEY'] = openai_api_key
+    if gemini_api_key:
+        os.environ['GEMINI_API_KEY'] = gemini_api_key
+
+    # Configure OpenAI
+    try:
+        if os.environ.get("OPENAI_API_KEY"):
+            client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+            print("✅ OpenAI configured successfully.")
+            OPENAI_ENABLED = True
+        else:
+            print("⚠️  OPENAI_API_KEY not set. ChatGPT features disabled.")
+            OPENAI_ENABLED = False
+    except Exception as e:
+        print(f"An error occurred while configuring OpenAI: {e}")
+
+    # Configure Gemini
+    try:
+        genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+        generation_config = {
+            "temperature": 0,
+            "top_p": 1,
+            "top_k": 1,
+            "max_output_tokens": 8192,  # Using LONG_PROMPT_MAX_TOKENS directly
+        }
+
+        flash_model = genai.GenerativeModel(
+            model_name="gemini-2.5-flash",
+            generation_config=generation_config
+        )
+        pro_model = genai.GenerativeModel(
+            model_name="gemini-2.5-pro",
+            generation_config=generation_config
+        )
+        print("✅ Gemini AI Models (Flash & Pro) configured successfully.")
+    except KeyError:
+        print("❌ ERROR: GEMINI_API_KEY environment variable not found.")
+    except Exception as e:
+        print(f"An error occurred during Gemini configuration: {e}")
+
+# Initialize clients on startup
+initialize_ai_clients()
+
 from datetime import datetime
 from planning_logic import PlanningLogic
 
@@ -57,53 +167,36 @@ FIELD_EXTRACTION_TASKS = [
     {"param_name": "total_deposit_by_tier", "prompt": "Calculate total deposit required for each tier (deposit amount × number of required deposits). Format as JSON array: [{'tier': 1, 'total_deposit': 2000}, {'tier': 2, 'total_deposit': 5000}]. If single tier, respond with 'Single tier'."},
 ]
 
-# --- AI Configuration ---
-# The model will read the API key from the GEMINI_API_KEY environment variable.
-try:
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    generation_config = {
-        "temperature": 0,
-        "top_p": 1,
-        "top_k": 1,
-        "max_output_tokens": LONG_PROMPT_MAX_TOKENS,
-    }
-
-    # Initialize both models
-    flash_model = genai.GenerativeModel(
-        model_name="gemini-2.5-flash",
-        generation_config=generation_config
-    )
-    pro_model = genai.GenerativeModel(
-        model_name="gemini-2.5-pro",
-        generation_config=generation_config
-    )
-    print("✅ Gemini AI Models (Flash & Pro) configured successfully.")
-except KeyError:
-    print("❌ ERROR: GEMINI_API_KEY environment variable not found.")
-    print("Please set the variable and restart the application.")
-    flash_model = None
-    pro_model = None
-except Exception as e:
-    print(f"An error occurred during Gemini configuration: {e}")
-    flash_model = None
-    pro_model = None
-
-# --- OpenAI Configuration ---
-try:
-    
-    openai_model_default = "gpt-4.1"
-    if os.environ.get("OPENAI_API_KEY"):
-        print("✅ OpenAI configured successfully.")
-        OPENAI_ENABLED = True
-    else:
-        print("⚠️  OPENAI_API_KEY not set. ChatGPT features disabled.")
-        OPENAI_ENABLED = False
-except Exception as e:
-    print(f"An error occurred while configuring OpenAI: {e}")
-    openai_model_default = None
-
 # --- Flask App ---
 app = Flask(__name__, static_folder='static')
+
+# --- API Key Setup Route ---
+@app.route('/setup', methods=['GET', 'POST'])
+def setup():
+    if request.method == 'POST':
+        openai_key = request.form.get('openai_api_key', '').strip()
+        gemini_key = request.form.get('gemini_api_key', '').strip()
+        
+        if not openai_key and not gemini_key:
+            return render_template('setup.html', error="At least one API key is required.")
+            
+        save_api_keys(openai_key, gemini_key)
+        
+        # Re-initialize clients with the new keys
+        initialize_ai_clients()
+        
+        return redirect(url_for('index'))
+        
+    return render_template('setup.html')
+
+@app.before_request
+def check_api_keys():
+    if request.endpoint in ['setup', 'static']:
+        return
+    
+    openai_key, gemini_key = load_api_keys()
+    if not openai_key and not gemini_key:
+        return redirect(url_for('setup'))
 
 # Storage configuration
 STORAGE_DIR = 'data'
@@ -283,7 +376,7 @@ def call_gemini(prompt, model_instance, use_short_tokens=False):
                 break
     
     # Gemini failed twice; fall back to OpenAI if available
-    if OPENAI_ENABLED and openai_model_default:
+    if OPENAI_ENABLED and client: # Use 'client' instead of 'openai_model_default'
         print("🔄 Gemini failed twice – switching to OpenAI as fallback")
         return call_ai(prompt, openai_model_default, use_short_tokens)
     # If OpenAI not available, return error
@@ -1170,6 +1263,6 @@ if __name__ == '__main__':
     
     def open_browser():
         webbrowser.open_new('http://127.0.0.1:5000/')
-
     threading.Timer(1, open_browser).start()
+
     app.run(debug=True, use_reloader=False)
