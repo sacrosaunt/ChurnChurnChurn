@@ -150,4 +150,6 @@ Thumbs.db
 .env.local
 .env.production
 data/
-churnchurnchurn
+churn
+churn.bat
+.install_complete

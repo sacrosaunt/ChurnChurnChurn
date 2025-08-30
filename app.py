@@ -2,11 +2,15 @@ import os
 import webbrowser
 import threading
 import re
+import requests
+import random
+import time
 from flask import Flask, jsonify, request, render_template, send_from_directory, redirect, url_for
 from dotenv import load_dotenv
+from bs4 import BeautifulSoup
 
 from src.utils.key_management import save_api_keys, load_api_keys
-from src.services.ai_clients import initialize_ai_clients, flash_model, pro_model
+from src.services.ai_clients import initialize_ai_clients, flash_model, pro_model, call_ai, openai_model_default, OPENAI_ENABLED
 from src.data.data_manager import (
     offers,
     next_offer_id,
@@ -21,13 +25,28 @@ from src.core.offer_processing import (
 )
 from src.core.scraping import scrape_and_process_url, process_manual_content
 from src.core.plan_generation import PlanGeneration
-from src.utils.config import FIELD_EXTRACTION_TASKS
+from src.utils.config import FIELD_EXTRACTION_TASKS, USER_AGENTS, CONTEXT_SIZE
 
 
 load_dotenv()
 
+# Debug: Check API keys before initialization
+print("🔍 Checking API keys before AI client initialization...")
+openai_key, gemini_key = load_api_keys()
+print(f"📋 OpenAI key found: {'Yes' if openai_key else 'No'}")
+print(f"📋 Gemini key found: {'Yes' if gemini_key else 'No'}")
+
 # Initialize clients on startup
+print("🚀 Starting AI client initialization...")
 initialize_ai_clients()
+
+# Debug: Check AI client status after initialization
+print("🔍 Checking AI client status after initialization...")
+from src.services.ai_clients import OPENAI_ENABLED, client, flash_model, pro_model
+print(f"📊 OpenAI Enabled: {OPENAI_ENABLED}")
+print(f"📊 OpenAI Client: {'Created' if client else 'Not Created'}")
+print(f"📊 Gemini Flash: {'Available' if flash_model else 'Not Available'}")
+print(f"📊 Gemini Pro: {'Available' if pro_model else 'Not Available'}")
 
 # --- Flask App ---
 app = Flask(__name__, static_folder='static')
@@ -82,20 +101,42 @@ def send_static(path):
 def handle_offers():
     global next_offer_id
     if request.method == 'POST':
-        if not flash_model or not pro_model:
-            return jsonify({'error': 'AI models not configured. Check server logs.'}), 500
-        
         data = request.get_json()
         if not data:
             return jsonify({'error': 'Request data is required'}), 400
+
+        # Check if this is a refresh request - refresh operations can work with just OpenAI
+        refresh_offer_id = data.get('refresh_offer_id')
+        if refresh_offer_id:
+            # For refresh operations, we only need OpenAI to be available
+            from src.services.ai_clients import OPENAI_ENABLED
+            if not OPENAI_ENABLED:
+                return jsonify({'error': 'OpenAI client not configured. Check server logs.'}), 500
+        else:
+            # For new offer creation, we need at least one AI model (Gemini or OpenAI)
+            # Import the current values directly from the module
+            from src.services.ai_clients import flash_model, pro_model, OPENAI_ENABLED
+            # Check if we have any AI models available
+            has_ai_models = bool(flash_model or pro_model or OPENAI_ENABLED)
+            print(f"🔍 AI Model Validation Debug:")
+            print(f"   flash_model: {flash_model}")
+            print(f"   pro_model: {pro_model}")
+            print(f"   OPENAI_ENABLED: {OPENAI_ENABLED}")
+            print(f"   has_ai_models: {has_ai_models}")
+            if not has_ai_models:
+                return jsonify({'error': 'AI models not configured. Check server logs.'}), 500
 
         # Handle both URL and manual content input
         url = None
         content = None
         original_url = None
         
+        print(f"🔍 Request data received: {data}")
+        print(f"🔍 Keys in data: {list(data.keys())}")
+        
         if 'url' in data:
             url = data['url'].strip()
+            print(f"🔍 URL mode detected: {url}")
             # Simple regex to check for a valid URL format before proceeding
             url_pattern = re.compile(
                 r'^(https?://)'  # http:// or https://
@@ -106,16 +147,18 @@ def handle_offers():
                 return jsonify({'error': 'Invalid URL. Please enter a full URL starting with http:// or https://.'}), 422
         elif 'content' in data:
             content = data['content'].strip()
+            print(f"🔍 Manual mode detected. Content length: {len(content)}")
             if not content:
                 return jsonify({'error': 'Content is required for manual mode'}), 400
             # Check if there's an original URL associated with this manual submission
             if 'original_url' in data:
                 original_url = data['original_url'].strip()
+                print(f"🔍 Original URL for manual mode: {original_url}")
         else:
+            print(f"🔍 Neither URL nor content found in request data")
             return jsonify({'error': 'Either URL or content is required'}), 400
 
-        # Check if this is a refresh request
-        refresh_offer_id = data.get('refresh_offer_id')
+        # Handle refresh requests
         if refresh_offer_id:
             print(f"🔄 Refresh request received for offer ID: {refresh_offer_id} (type: {type(refresh_offer_id)})")
             print(f"📋 Available offer IDs: {list(offers.keys())}")
@@ -171,8 +214,13 @@ def handle_offers():
 
         offer_id = next_offer_id
         
+        print(f"🔍 Creating offer with ID: {offer_id}")
+        print(f"🔍 Offer type: {'URL' if url else 'Manual Content'}")
+        print(f"🔍 Content length: {len(content) if content else 'N/A'}")
+        
         # Create offer with appropriate URL or placeholder
         offer_url = url if url else (original_url if original_url else f"manual-content-{offer_id}")
+        print(f"🔍 Offer URL set to: {offer_url}")
         
         offers[offer_id] = {
             'id': offer_id, 'url': offer_url,
@@ -182,17 +230,23 @@ def handle_offers():
             'details': {field['param_name']: 'Processing...' for field in FIELD_EXTRACTION_TASKS + [{"param_name": "additional_considerations"}]}
         }
         
+        print(f"🔍 Offer created with status: {offers[offer_id]['status']}")
+        print(f"🔍 Processing step: {offers[offer_id]['processing_step']}")
+        
         # Store the original content for manual mode offers
         if not url:
             offers[offer_id]['original_content'] = content
+            print(f"🔍 Stored original content for manual mode offer")
         
         # Save the new offer to storage
         save_offer(offer_id)
         
         # Start processing thread
         if url:
+            print(f"🔍 Starting URL processing thread")
             thread = threading.Thread(target=scrape_and_process_url, args=(url, offer_id))
         else:
+            print(f"🔍 Starting manual content processing thread")
             thread = threading.Thread(target=process_manual_content, args=(content, offer_id))
         thread.start()
         
@@ -207,6 +261,10 @@ def refresh_offer_field(offer_id):
     """Rescrapes the website and re-queries a specific field."""
     if offer_id not in offers:
         return jsonify({'error': 'Offer not found'}), 404
+    
+    # Check if at least OpenAI is available for refresh operations
+    if not OPENAI_ENABLED:
+        return jsonify({'error': 'OpenAI client not configured. Check server logs.'}), 500
     
     data = request.get_json()
     field_name = data.get('field')
@@ -337,10 +395,14 @@ This information is crucial because many bank offers are restricted to "new cust
         
         def query_ai(query_num):
             print(f"  Query {query_num}/3: Asking AI about '{field_name}'...")
-            # Use flash model for additional_considerations, pro model for other fields
-            model_to_use = (openai_model_default if field_name == "additional_considerations" else pro_model)
-            # Use long tokens for additional_considerations, short tokens for other fields
-            use_long_tokens = (field_name == "additional_considerations")
+            # Use OpenAI as fallback when Gemini models are not available
+            if field_name == "additional_considerations":
+                model_to_use = openai_model_default
+                use_long_tokens = True
+            else:
+                # Try to use pro_model if available, otherwise fall back to OpenAI
+                model_to_use = pro_model if pro_model else openai_model_default
+                use_long_tokens = False
             result = call_ai(query_prompt, model_to_use, use_short_tokens=not use_long_tokens)
             print(f"  Query {query_num}/3 Response: '{result.strip()}'")
             return result.strip()
@@ -371,36 +433,167 @@ This information is crucial because many bank offers are restricted to "new cust
         print(f"🧠 Stage 3: Sending consensus query for field '{field_name}' in offer {offer_id}")
         print(f"  Consensus input: {results}")
         start_consensus_time = time.time()
-        consensus_prompt = f"""
-        I have 3 different answers for the same question about a bank offer. Please determine the most accurate answer by considering both the original website content and the 3 AI responses:
+        # Determine if this field expects a numeric value
+        numeric_fields = [
+            'minimum_daily_balance_required', 'minimum_deposit_amount', 'initial_deposit_amount',
+            'bonus_to_be_received', 'minimum_monthly_fee', 'num_required_deposits',
+            'days_for_deposit', 'days_for_bonus', 'must_be_open_for', 'total_deposit_required'
+        ]
         
-        Question: {field_prompt}
-        {existing_accounts_context}
+        is_numeric_field = field_name in numeric_fields
         
-        Answer 1: {results[0]}
-        Answer 2: {results[1]}
-        Answer 3: {results[2]}
+        if is_numeric_field:
+            # Special handling for minimum_daily_balance_required
+                if field_name == 'minimum_daily_balance_required':
+                    consensus_prompt = f"""
+                    I have 3 different answers for the same question about a bank offer. Please determine the most accurate answer by considering both the original website content and the 3 AI responses:
+                    
+                    Question: {field_prompt}
+                    {existing_accounts_context}
+                    
+                    Answer 1: {results[0]}
+                    Answer 2: {results[1]}
+                    Answer 3: {results[2]}
+                    
+                    --- ORIGINAL WEBSITE CONTENT START ---
+                    {page_text[-CONTEXT_SIZE:]}
+                    --- ORIGINAL WEBSITE CONTENT END ---
+                    
+                    CRITICAL: This field is for minimum_daily_balance_required. You MUST extract ONLY a single dollar amount.
+                    
+                    RULES:
+                    1. If there are multiple balance requirements (e.g., checking vs savings), prioritize the CHECKING account requirement
+                    2. Extract ONLY the dollar amount, no text, no parentheses, no explanations
+                    3. Examples: "$1,500 (checking)" → "1500", "$300 savings" → "300", "1500" → "1500"
+                    4. If no clear balance requirement is found, respond with "0"
+                    5. Do NOT include multiple values or ranges
+                    
+                    Provide ONLY the numeric value for the checking account minimum daily balance requirement.
+                    """
+                else:
+                    consensus_prompt = f"""
+                    I have 3 different answers for the same question about a bank offer. Please determine the most accurate answer by considering both the original website content and the 3 AI responses:
+                    
+                    Question: {field_prompt}
+                    {existing_accounts_context}
+                    
+                    Answer 1: {results[0]}
+                    Answer 2: {results[1]}
+                    Answer 3: {results[2]}
+                    
+                    --- ORIGINAL WEBSITE CONTENT START ---
+                    {page_text[-CONTEXT_SIZE:]}
+                    --- ORIGINAL WEBSITE CONTENT END ---
+                    
+                    IMPORTANT: This field expects a NUMERIC value. Extract ONLY the relevant number from the most accurate answer.
+                    
+                    For minimum_deposit_amount: Extract only the dollar amount (e.g., "1000" from "$1,000")
+                    For bonus amounts: Extract only the dollar amount (e.g., "300" from "$300")
+                    For fees: Extract only the dollar amount (e.g., "0" from "$0" or "waived")
+                    For counts/days: Extract only the number (e.g., "90" from "90 days")
+                    
+                    If multiple values exist, choose the most relevant one based on the field context.
+                    Provide ONLY the numeric value, no text, no explanation.
+                    """
+        else:
+            consensus_prompt = f"""
+            I have 3 different answers for the same question about a bank offer. Please determine the most accurate answer by considering both the original website content and the 3 AI responses:
+            
+            Question: {field_prompt}
+            {existing_accounts_context}
+            
+            Answer 1: {results[0]}
+            Answer 2: {results[1]}
+            Answer 3: {results[2]}
+            
+            --- ORIGINAL WEBSITE CONTENT START ---
+            {page_text[-CONTEXT_SIZE:]}
+            --- ORIGINAL WEBSITE CONTENT END ---
+            
+            Consider the context from the original website content and choose the most accurate answer. If the answers are similar, choose the most specific one. If they conflict significantly, choose the most reasonable answer based on the original content and typical bank offer patterns.
+            
+            Provide only the final answer, without explanation.
+            """
         
-        --- ORIGINAL WEBSITE CONTENT START ---
-        {page_text[-CONTEXT_SIZE:]}
-        --- ORIGINAL WEBSITE CONTENT END ---
-        
-        Consider the context from the original website content and choose the most accurate answer. If the answers are similar, choose the most specific one. If they conflict significantly, choose the most reasonable answer based on the original content and typical bank offer patterns.
-        
-        Provide only the final answer, without explanation.
-        """
-        
-        # Use flash model for additional_considerations, pro model for other fields
-        model_to_use = (openai_model_default if field_name == "additional_considerations" else pro_model)
-        # Use long tokens for additional_considerations, short tokens for other fields
-        use_long_tokens = (field_name == "additional_considerations")
+        # Use OpenAI as fallback when Gemini models are not available
+        if field_name == "additional_considerations":
+            model_to_use = openai_model_default
+            use_long_tokens = True
+        else:
+            # Try to use pro_model if available, otherwise fall back to OpenAI
+            model_to_use = pro_model if pro_model else openai_model_default
+            use_long_tokens = False
         final_result = call_ai(consensus_prompt, model_to_use, use_short_tokens=not use_long_tokens)
         consensus_duration = time.time() - start_consensus_time
         print(f"  Consensus Response: '{final_result.strip()}'")
-        offers[offer_id]['details'][field_name] = final_result.strip()
+        
+        # Post-process numeric fields to ensure clean numeric values
+        if is_numeric_field:
+            cleaned_result = final_result.strip()
+            # Remove common non-numeric text and extract just the number
+            if field_name == 'minimum_daily_balance_required':
+                # Extract the first dollar amount found - prioritize checking account requirements
+                if 'checking' in cleaned_result.lower():
+                    # Look for checking account balance requirement first
+                    checking_match = re.search(r'checking.*?\$?([0-9,]+)', cleaned_result, re.IGNORECASE)
+                    if checking_match:
+                        cleaned_result = checking_match.group(1).replace(',', '')
+                    else:
+                        # Fall back to any dollar amount
+                        dollar_match = re.search(r'\$?([0-9,]+)', cleaned_result)
+                        if dollar_match:
+                            cleaned_result = dollar_match.group(1).replace(',', '')
+                else:
+                    # Extract any dollar amount found
+                    dollar_match = re.search(r'\$?([0-9,]+)', cleaned_result)
+                    if dollar_match:
+                        cleaned_result = dollar_match.group(1).replace(',', '')
+                
+                if cleaned_result == final_result.strip():  # No change made
+                    if '0' in cleaned_result.lower() or 'none' in cleaned_result.lower():
+                        cleaned_result = '0'
+                    elif 'n/a' in cleaned_result.lower():
+                        cleaned_result = 'N/A'
+                        
+            elif field_name in ['days_for_deposit', 'days_for_bonus', 'must_be_open_for', 'num_required_deposits']:
+                # Extract just the number
+                number_match = re.search(r'([0-9]+)', cleaned_result)
+                if number_match:
+                    cleaned_result = number_match.group(1)
+                elif 'n/a' in cleaned_result.lower():
+                    cleaned_result = 'N/A'
+                    
+            elif field_name in ['minimum_monthly_fee', 'minimum_deposit_amount', 'initial_deposit_amount', 'bonus_to_be_received', 'total_deposit_required']:
+                # Extract dollar amount
+                dollar_match = re.search(r'\$?([0-9,]+\.?[0-9]*)', cleaned_result)
+                if dollar_match:
+                    cleaned_result = dollar_match.group(1).replace(',', '')
+                elif '0' in cleaned_result.lower() or 'none' in cleaned_result.lower() or 'waived' in cleaned_result.lower():
+                    cleaned_result = '0'
+            
+            print(f"  Cleaned numeric result: '{cleaned_result}'")
+            
+            # Additional validation for numeric fields
+            if field_name == 'minimum_daily_balance_required':
+                # Ensure we have a valid numeric result
+                if not cleaned_result.isdigit() and cleaned_result != '0' and cleaned_result != 'N/A':
+                    print(f"  ⚠️ Warning: Invalid numeric result for {field_name}, attempting to extract again...")
+                    # Try one more extraction attempt
+                    final_extraction = re.search(r'([0-9]+)', cleaned_result)
+                    if final_extraction:
+                        cleaned_result = final_extraction.group(1)
+                        print(f"  ✅ Final extraction successful: '{cleaned_result}'")
+                    else:
+                        cleaned_result = '0'
+                        print(f"  ❌ Extraction failed, defaulting to '0'")
+            
+            offers[offer_id]['details'][field_name] = cleaned_result
+        else:
+            offers[offer_id]['details'][field_name] = final_result.strip()
+        
         # Save the updated offer to storage
         save_offer(offer_id)
-        print(f"✅ Stage 3 Complete: Final result for '{field_name}': '{final_result.strip()}' in {consensus_duration:.1f}s")
+        print(f"✅ Stage 3 Complete: Final result for '{field_name}': '{offers[offer_id]['details'][field_name]}' in {consensus_duration:.1f}s")
         
         # Keep status visible for a moment before clearing
         time.sleep(1.5)

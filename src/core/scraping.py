@@ -65,7 +65,7 @@ def scrape_and_process_url(url, offer_id):
         - Number of required deposits (including direct deposits)
         - Offer expiration date
         - Monthly fees and whether they can be waived
-        - Minimum daily balance requirements
+        - Minimum daily balance requirements (NOTE: If multiple account types have different requirements, clearly separate checking vs savings requirements)
         - Time limits for deposits and bonus payout
         - Direct deposit requirements
         - Account holding period to avoid clawback
@@ -78,7 +78,13 @@ def scrape_and_process_url(url, offer_id):
         {page_text[-CONTEXT_SIZE:]}
         --- RAW TEXT END ---
         """
-        summary_content = call_gemini(summary_prompt, pro_model, use_short_tokens=False)
+        # Try Gemini first if available, otherwise fall back to OpenAI
+        if pro_model:
+            summary_content = call_gemini(summary_prompt, pro_model, use_short_tokens=False)
+        else:
+            # Fall back to OpenAI
+            from src.services.ai_clients import call_ai, openai_model_default
+            summary_content = call_ai(summary_prompt, openai_model_default, use_short_tokens=False)
         print(f"Summary created:\n{summary_content}")
         
         offers[offer_id]['processing_step'] = "Extracting Details"
@@ -149,7 +155,7 @@ def process_manual_content(content, offer_id):
         - Number of required deposits (including direct deposits)
         - Offer expiration date
         - Monthly fees and whether they can be waived
-        - Minimum daily balance requirements
+        - Minimum daily balance requirements (NOTE: If multiple account types have different requirements, clearly separate checking vs savings requirements)
         - Time limits for deposits and bonus payout
         - Direct deposit requirements
         - Account holding period to avoid clawback
@@ -162,7 +168,13 @@ def process_manual_content(content, offer_id):
         {page_text[-CONTEXT_SIZE:]}
         --- RAW TEXT END ---
         """
-        summary_content = call_gemini(summary_prompt, pro_model, use_short_tokens=False)
+        # Try Gemini first if available, otherwise fall back to OpenAI
+        if pro_model:
+            summary_content = call_gemini(summary_prompt, pro_model, use_short_tokens=False)
+        else:
+            # Fall back to OpenAI
+            from src.services.ai_clients import call_ai, openai_model_default
+            summary_content = call_ai(summary_prompt, openai_model_default, use_short_tokens=False)
         print(f"Summary created:\n{summary_content}")
         
         offers[offer_id]['processing_step'] = "Extracting Details"

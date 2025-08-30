@@ -64,7 +64,13 @@ def extract_offer_details_with_ai(summary_content, raw_text, offer_id):
         {summary_content}
         --- SUMMARY TEXT END ---
         """
-        result = call_gemini(full_prompt, flash_model, use_short_tokens=True)
+        # Try Gemini first if available, otherwise fall back to OpenAI
+        if flash_model:
+            result = call_gemini(full_prompt, flash_model, use_short_tokens=True)
+        else:
+            # Fall back to OpenAI
+            from src.services.ai_clients import call_ai, openai_model_default
+            result = call_ai(full_prompt, openai_model_default, use_short_tokens=True)
         
         if offer_id in offers and 'details' in offers[offer_id]:
              offers[offer_id]['details'][param_name] = result

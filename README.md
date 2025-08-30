@@ -19,7 +19,7 @@ That's where ChurnChurnChurn comes in. This tool is designed to be your personal
 - **Discover and Track Offers:** Easily save and organize bank account offers you find online
 - **Understand the Fine Print:** Our AI-powered analysis extracts key details from offer descriptions, so you know exactly what you need to do to qualify for a bonus
 - **Plan Your Strategy:** The planning feature helps you schedule account openings and actions around your pay cycles to meet direct deposit requirements efficiently
-- **Stay Organized:** Keep all your churning activities in one place, so you never miss a deadline or a bonus
+- **Stay Organized:** Keep all your churning activities in one place, so you never miss a deadline or a bonus 
 
 Whether you're new to churning or a seasoned pro, ChurnChurnChurn helps you maximize your rewards and minimize the hassle.
 
