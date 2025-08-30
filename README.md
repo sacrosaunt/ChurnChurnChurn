@@ -39,7 +39,7 @@ Check out [Doctor of Credit](https://www.doctorofcredit.com/best-bank-account-bo
 
 Getting started is as simple as 1, 2, ... oh.. that's it I guess!
 
-1.  **Download and extract** the latest release ZIP file
+1.  **Download and extract** the [latest release ZIP file](https://github.com/sacrosaunt/ChurnChurnChurn/releases)
 2.  **Run the launcher:** You can run the commands below in your terminal, or simply **double-click the `churn` file** (`churn.bat` on Windows)
 
     -  On **macOS/Linux**:
