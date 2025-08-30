@@ -33,40 +33,31 @@ Check out [Doctor of Credit](https://www.doctorofcredit.com/best-bank-account-bo
 
 ## Quick Start
 
-### 0. Prerequisites
+### 1. Prerequisites
 
 - Python 3.8+
-- `venv` module (usually included with Python)
 
-### 1. Installation
+### 2. Installation & Running
 
-**Option A: Automated Installation (Recommended)**
-```sh
-# Download and extract the package
-# Run the installation script
-python3 install.py
-```
+Getting started is as simple as running one script.
 
-**Option B: Manual Installation**
-```sh
-# Create and activate virtual environment
-python3 -m venv .venv
-source .venv/bin/activate  # On macOS/Linux
-# .venv\Scripts\activate   # On Windows
+1.  **Download and extract** the latest release ZIP file.
+2.  **Run the launcher:** You can run the commands below in your terminal, or simply **double-click the `churn` file** (`churn.bat` on Windows).
+    -   On **macOS/Linux**:
+        ```sh
+        ./churn
+        ```
+    -   On **Windows**:
+        ```cmd
+        churn.bat
+        ```
 
-# Install dependencies
-pip install -r requirements.txt
-```
+When you run the launcher for the first time, it will automatically:
+- Create an isolated virtual environment (`.venv`).
+- Install all the necessary dependencies.
+- Start the application.
 
-### 2. Running the Application
-
-```sh
-# Option 1: Direct execution
-python3 app.py
-
-# Option 2: Using launcher script (after install.py)
-./churnchurnchurn
-```
+On subsequent runs, it will just start the application directly.
 
 The application will automatically open in a new browser tab at `http://127.0.0.1:5000`.
 

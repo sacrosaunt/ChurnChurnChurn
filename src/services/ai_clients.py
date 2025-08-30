@@ -27,7 +27,6 @@ def initialize_ai_clients():
     try:
         if os.environ.get("OPENAI_API_KEY"):
             client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-            print("✅ OpenAI configured successfully.")
             OPENAI_ENABLED = True
         else:
             print("⚠️  OPENAI_API_KEY not set. ChatGPT features disabled.")
@@ -53,7 +52,6 @@ def initialize_ai_clients():
             model_name="gemini-2.5-pro",
             generation_config=generation_config
         )
-        print("✅ Gemini AI Models (Flash & Pro) configured successfully.")
     except KeyError:
         print("❌ ERROR: GEMINI_API_KEY environment variable not found.")
     except Exception as e:

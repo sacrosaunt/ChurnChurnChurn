@@ -62,18 +62,83 @@ def create_distribution():
         else:
             print(f"⚠️  Warning: {pattern} not found")
     
-    # Create launcher script
-    launcher_content = """#!/bin/bash
-# ChurnChurnChurn Launcher Script
-cd "$(dirname "$0")"
-python3 app.py
+    # --- Create Unix (macOS/Linux) Launcher ---
+    launcher_content_unix = """#!/bin/bash
+# Churn Launcher Script
+
+# Get the directory where the script is located
+BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$BASE_DIR"
+
+# Check if installation is complete
+if [ ! -f ".install_complete" ]; then
+    echo "First-time setup: Installing dependencies and creating virtual environment..."
+    CCC_INSTALL_MODE=launcher python3 install.py
+    
+    # Check if installation was successful
+    if [ $? -ne 0 ]; then
+        echo "❌ Installation failed. Please run 'python3 install.py' manually to see the error."
+        exit 1
+    fi
+fi
+
+# Define path to python executable in venv
+VENV_PYTHON="$BASE_DIR/.venv/bin/python"
+
+# Check if the venv python executable exists
+if [ ! -f "$VENV_PYTHON" ]; then
+    echo "❌ Virtual environment python not found! It should have been created by the installer."
+    echo "Please try running 'python3 install.py' again."
+    exit 1
+fi
+
+# Run the application using the venv's python
+echo "🚀 Starting ChurnChurnChurn..."
+"$VENV_PYTHON" app.py
 """
     
-    launcher_path = package_dir / "churn"
-    with open(launcher_path, "w") as f:
-        f.write(launcher_content)
-    os.chmod(launcher_path, 0o755)
-    print("✅ Created launcher script")
+    launcher_path_unix = package_dir / "churn"
+    with open(launcher_path_unix, "w", newline='\n') as f:
+        f.write(launcher_content_unix)
+    os.chmod(launcher_path_unix, 0o755)
+    print("✅ Created Unix launcher script")
+
+    # --- Create Windows Launcher ---
+    launcher_content_windows = """@echo off
+REM Churn Launcher Script
+
+REM Get the directory where the script is located
+cd /d "%~dp0"
+
+REM Check if installation is complete
+if not exist ".install_complete" (
+    echo First-time setup: Installing dependencies and creating virtual environment...
+    set "CCC_INSTALL_MODE=launcher" && python3 install.py
+    
+    if %errorlevel% neq 0 (
+        echo ❌ Installation failed. Please run 'python3 install.py' manually to see the error.
+        exit /b 1
+    )
+)
+
+REM Define path to python executable in venv
+set "VENV_PYTHON=%~dp0.venv\\Scripts\\python.exe"
+
+REM Check if the venv python executable exists
+if not exist "%VENV_PYTHON%" (
+    echo ❌ Virtual environment python not found! It should have been created by the installer.
+    echo Please try running 'python3 install.py' again.
+    exit /b 1
+)
+
+REM Run the application using the venv's python
+echo 🚀 Starting ChurnChurnChurn...
+"%VENV_PYTHON%" app.py
+"""
+    launcher_path_windows = package_dir / "churn.bat"
+    with open(launcher_path_windows, "w", newline='\r\n') as f:
+        f.write(launcher_content_windows)
+    print("✅ Created Windows launcher script")
     
     # Create installation instructions
     install_instructions = """# ChurnChurnChurn Installation
