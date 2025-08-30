@@ -69,7 +69,7 @@ cd "$(dirname "$0")"
 python3 app.py
 """
     
-    launcher_path = package_dir / "churnchurnchurn"
+    launcher_path = package_dir / "churn"
     with open(launcher_path, "w") as f:
         f.write(launcher_content)
     os.chmod(launcher_path, 0o755)
