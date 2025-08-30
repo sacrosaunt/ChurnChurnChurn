@@ -16,10 +16,10 @@ This project is a Flask application for tracking and planning bank account churn
 
 That's where ChurnChurnChurn comes in. This tool is designed to be your personal assistant for bank account churning. It helps you:
 
-- **Discover and Track Offers:** Easily save and organize bank account offers you find online.
-- **Understand the Fine Print:** Our AI-powered analysis extracts key details from offer descriptions, so you know exactly what you need to do to qualify for a bonus.
-- **Plan Your Strategy:** The planning feature helps you schedule account openings and actions around your pay cycles to meet direct deposit requirements efficiently.
-- **Stay Organized:** Keep all your churning activities in one place, so you never miss a deadline or a bonus.
+- **Discover and Track Offers:** Easily save and organize bank account offers you find online
+- **Understand the Fine Print:** Our AI-powered analysis extracts key details from offer descriptions, so you know exactly what you need to do to qualify for a bonus
+- **Plan Your Strategy:** The planning feature helps you schedule account openings and actions around your pay cycles to meet direct deposit requirements efficiently
+- **Stay Organized:** Keep all your churning activities in one place, so you never miss a deadline or a bonus
 
 Whether you're new to churning or a seasoned pro, ChurnChurnChurn helps you maximize your rewards and minimize the hassle.
 
@@ -33,17 +33,16 @@ Check out [Doctor of Credit](https://www.doctorofcredit.com/best-bank-account-bo
 
 ## Quick Start
 
-### 1. Prerequisites
+**Prerequisites:** Python 3.8+
 
-- Python 3.8+
+### 1. Installation & Running
 
-### 2. Installation & Running
+Getting started is as simple as 1, 2, ... oh.. that's it I guess!
 
-Getting started is as simple as running one script.
+1.  **Download and extract** the latest release ZIP file
+2.  **Run the launcher:** You can run the commands below in your terminal, or simply **double-click the `churn` file** (`churn.bat` on Windows)
 
-1.  **Download and extract** the latest release ZIP file.
-2.  **Run the launcher:** You can run the commands below in your terminal, or simply **double-click the `churn` file** (`churn.bat` on Windows).
-    -   On **macOS/Linux**:
+    -  On **macOS/Linux**:
         ```sh
         ./churn
         ```
@@ -53,15 +52,15 @@ Getting started is as simple as running one script.
         ```
 
 When you run the launcher for the first time, it will automatically:
-- Create an isolated virtual environment (`.venv`).
-- Install all the necessary dependencies.
-- Start the application.
+- Create an isolated virtual environment (`.venv`)
+- Install all the necessary dependencies
+- Start the application
 
 On subsequent runs, it will just start the application directly.
 
 The application will automatically open in a new browser tab at `http://127.0.0.1:5000`.
 
-### 3. API Key Setup
+### 2. API Key Setup
 
 On the first run, you will be redirected to a setup page to enter your API keys.
 
