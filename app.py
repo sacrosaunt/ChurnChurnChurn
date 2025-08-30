@@ -30,23 +30,8 @@ from src.utils.config import FIELD_EXTRACTION_TASKS, USER_AGENTS, CONTEXT_SIZE
 
 load_dotenv()
 
-# Debug: Check API keys before initialization
-print("🔍 Checking API keys before AI client initialization...")
-openai_key, gemini_key = load_api_keys()
-print(f"📋 OpenAI key found: {'Yes' if openai_key else 'No'}")
-print(f"📋 Gemini key found: {'Yes' if gemini_key else 'No'}")
-
 # Initialize clients on startup
-print("🚀 Starting AI client initialization...")
 initialize_ai_clients()
-
-# Debug: Check AI client status after initialization
-print("🔍 Checking AI client status after initialization...")
-from src.services.ai_clients import OPENAI_ENABLED, client, flash_model, pro_model
-print(f"📊 OpenAI Enabled: {OPENAI_ENABLED}")
-print(f"📊 OpenAI Client: {'Created' if client else 'Not Created'}")
-print(f"📊 Gemini Flash: {'Available' if flash_model else 'Not Available'}")
-print(f"📊 Gemini Pro: {'Available' if pro_model else 'Not Available'}")
 
 # --- Flask App ---
 app = Flask(__name__, static_folder='static')
