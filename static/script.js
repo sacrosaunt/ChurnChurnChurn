@@ -204,9 +204,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 
-    const getExpirationColor = (dateString) => {
+    const getExpirationColor = (dateString, offer = null) => {
+        // Check if this is an offer that should have greyed out expiration
+        if (offer && (offer.user_controlled.deposited || offer.user_controlled.received)) {
+            return 'text-gray-400'; // Grey for opened, waiting, or claimed offers
+        }
+        
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-            return 'text-gray-900';
+            return 'text-gray-900'; // This handles N/A and other non-date values
         }
         const expirationDate = new Date(dateString + 'T00:00:00Z');
         if (isNaN(expirationDate.getTime())) {
@@ -276,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const formatValue = (value, type = 'text', options = {}) => {
-        const { skeletonOptions = {}, offerStatus = '', fieldName = '' } = options;
+        const { skeletonOptions = {}, offerStatus = '', fieldName = '', offer = null } = options;
         if (offerStatus !== 'failed' && String(value).toLowerCase().includes('processing')) {
             const { width, alignClass } = skeletonOptions;
             return skeleton(width, alignClass);
@@ -285,6 +290,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return '<span class="text-gray-500">N/A</span>';
         }
         if (value === null || value === undefined || String(value).toLowerCase() === 'n/a') {
+            // Check if this is a deal_expiration_date field for an opened/waiting/claimed offer
+            if (fieldName === 'deal_expiration_date' && offer && (offer.user_controlled.deposited || offer.user_controlled.received)) {
+                return '<span class="text-gray-400">N/A</span>';
+            }
             return '<span class="text-gray-500">N/A</span>';
         }
         
@@ -310,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const formattedDate = formatDateString(processedValue);
                 // Add color for expiration dates
                 if (fieldName === 'deal_expiration_date') {
-                    const colorClass = getExpirationColor(processedValue);
+                    const colorClass = getExpirationColor(processedValue, offer);
                     return `<span class="${colorClass}">${formattedDate}</span>`;
                 }
                 return formattedDate;
@@ -646,7 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </svg>
                     <span>${TEXT_CONTENT.list.expires}</span>
                     <span class="ml-1" data-field="deal_expiration_date">
-                        ${formatValue(offer.details.deal_expiration_date, 'date', { skeletonOptions: { width: 'w-16', alignClass: '' }, offerStatus: offer.status, fieldName: 'deal_expiration_date' })}
+                        ${formatValue(offer.details.deal_expiration_date, 'date', { skeletonOptions: { width: 'w-16', alignClass: '' }, offerStatus: offer.status, fieldName: 'deal_expiration_date', offer: offer })}
                     </span>
                 </div>
             </div>
@@ -659,6 +668,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const { statusClass } = getOfferStatus(offer);
         return statusClass.replace('status-', '').replace(' ', '_');
     };
+
+
 
     const renderDetailView = (offer) => {
         // Handle failed offers first
@@ -915,7 +926,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     ${createMetricTile(TEXT_CONTENT.detail.initialDeposit, formatValue(offer.details.initial_deposit_amount, 'currency', { fieldName: 'initial_deposit_amount', offerStatus: offer.status }), { fieldName: 'initial_deposit_amount', offerId: offer.id })}
                     ${createMetricTile(TEXT_CONTENT.detail.totalDeposit, formatValue(offer.details.total_deposit_required, 'currency', { fieldName: 'total_deposit_required', offerStatus: offer.status }), { fieldName: 'total_deposit_required', offerId: offer.id })}
-                    ${createMetricTile(TEXT_CONTENT.detail.offerExpires, formatValue(offer.details.deal_expiration_date, 'date', { fieldName: 'deal_expiration_date', offerStatus: offer.status }), { fieldName: 'deal_expiration_date', offerId: offer.id })}
+                    ${createMetricTile(TEXT_CONTENT.detail.offerExpires, formatValue(offer.details.deal_expiration_date, 'date', { fieldName: 'deal_expiration_date', offerStatus: offer.status, offer: offer }), { fieldName: 'deal_expiration_date', offerId: offer.id })}
                     ${createMetricTile(TEXT_CONTENT.detail.monthlyFee, formatValue(offer.details.minimum_monthly_fee, 'currency', { fieldName: 'minimum_monthly_fee', offerStatus: offer.status }), { subtitle: feeIsConditional ? TEXT_CONTENT.detail.feeConditional : '', fieldName: 'minimum_monthly_fee', offerId: offer.id })}
                     ${createMetricTile(TEXT_CONTENT.detail.minBalance, formatValue(offer.details.minimum_daily_balance_required, 'currency', { fieldName: 'minimum_daily_balance_required', offerStatus: offer.status }), { fieldName: 'minimum_daily_balance_required', offerId: offer.id })}
                     ${createMetricTile(TEXT_CONTENT.detail.depositsRequired, formatValue(offer.details.num_required_deposits, 'text', { fieldName: 'num_required_deposits', offerStatus: offer.status }), { fieldName: 'num_required_deposits', offerId: offer.id })}
