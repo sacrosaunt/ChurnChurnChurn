@@ -18,6 +18,7 @@ from src.data.data_manager import (
     delete_offer_from_storage,
     backup_offers,
     get_storage_stats,
+    get_next_available_offer_id,
 )
 from src.core.offer_processing import (
     check_duplicate_offer,
@@ -197,7 +198,7 @@ def handle_offers():
                     'duplicate_offer': duplicate_offer
                 }), 409
 
-        offer_id = next_offer_id
+        offer_id = get_next_available_offer_id()
         
         print(f"🔍 Creating offer with ID: {offer_id}")
         print(f"🔍 Offer type: {'URL' if url else 'Manual Content'}")
