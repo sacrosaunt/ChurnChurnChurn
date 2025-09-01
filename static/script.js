@@ -333,18 +333,69 @@ document.addEventListener('DOMContentLoaded', () => {
             return null;
         }
 
+        // Clean up the JSON string first
+        let cleanedJson = bonusTiersDetailed;
+        if (typeof cleanedJson === 'string') {
+            // Remove any "json" prefix that might be present (more robust)
+            cleanedJson = cleanedJson.replace(/^json\s*\n?/i, '').trim();
+            // Also handle cases where "json" appears at the start of the actual content
+            if (cleanedJson.startsWith('json\n') || cleanedJson.startsWith('json ')) {
+                cleanedJson = cleanedJson.substring(cleanedJson.indexOf('\n') + 1).trim();
+            }
+            // Fix single quotes to double quotes for valid JSON
+            cleanedJson = cleanedJson.replace(/'/g, '"');
+        }
+
         try {
             // Try to parse as JSON first
-            const tiers = JSON.parse(bonusTiersDetailed);
-            const deposits = totalDepositByTier && totalDepositByTier !== 'Single tier' ? JSON.parse(totalDepositByTier) : null;
+            const tiers = JSON.parse(cleanedJson);
+            // Clean totalDepositByTier data too
+            let cleanedDeposits = totalDepositByTier;
+            if (cleanedDeposits && cleanedDeposits !== 'Single tier' && typeof cleanedDeposits === 'string') {
+                cleanedDeposits = cleanedDeposits.replace(/^json\s*\n?/i, '').trim();
+                cleanedDeposits = cleanedDeposits.replace(/'/g, '"');
+            }
+            const deposits = cleanedDeposits && cleanedDeposits !== 'Single tier' ? JSON.parse(cleanedDeposits) : null;
             
-            return tiers.map(tier => ({
-                tier: tier.tier,
-                bonus: tier.bonus,
-                deposit: tier.deposit,
-                totalDeposit: deposits ? deposits.find(d => d.tier === tier.tier)?.total_deposit : tier.deposit
-            }));
+            // Ensure we have valid tiers array
+            if (!Array.isArray(tiers) || tiers.length === 0) {
+                return null;
+            }
+            
+            return tiers.map(tier => {
+                // Handle mixed data types in deposit field
+                let depositAmount = tier.deposit;
+                let depositDescription = null;
+                
+                // If deposit is a string (description), try to extract numeric value
+                if (typeof depositAmount === 'string') {
+                    // Look for dollar amounts in the description
+                    const dollarMatch = depositAmount.match(/\$?([\d,]+)/);
+                    if (dollarMatch) {
+                        const numericValue = parseFloat(dollarMatch[1].replace(',', ''));
+                        if (!isNaN(numericValue)) {
+                            depositDescription = depositAmount;
+                            depositAmount = numericValue;
+                        }
+                    } else {
+                        // No numeric value found, treat as special requirement
+                        depositDescription = depositAmount;
+                        depositAmount = 0; // Use 0 for display purposes
+                    }
+                }
+                
+                return {
+                    tier: tier.tier || 1,
+                    bonus: tier.bonus || 0,
+                    deposit: depositAmount,
+                    depositDescription: depositDescription,
+                    totalDeposit: deposits ? deposits.find(d => d.tier === tier.tier)?.total_deposit : depositAmount
+                };
+            });
         } catch (e) {
+            console.warn('Failed to parse tier data as JSON:', e);
+            console.warn('Original data:', bonusTiersDetailed);
+            console.warn('Cleaned data:', cleanedJson);
             // Fallback to regex parsing if JSON fails
             const tierPattern = /Tier(\d+):\s*\$?([\d,]+)\s*bonus\s*for\s*\$?([\d,]+)\s*deposit/g;
             const tiers = [];
@@ -355,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     tier: parseInt(match[1]),
                     bonus: parseFloat(match[2].replace(',', '')),
                     deposit: parseFloat(match[3].replace(',', '')),
+                    depositDescription: null,
                     totalDeposit: parseFloat(match[3].replace(',', ''))
                 });
             }
@@ -363,20 +415,113 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const shortenTierDescription = (description) => {
+        if (!description) return description;
+        
+        // Remove dollar sign prefix
+        let cleaned = description.replace(/^\$+/, '').trim();
+        
+        // Handle specific patterns to create meaningful, concise descriptions
+        
+        // Direct deposit patterns
+        if (/direct deposit/i.test(cleaned)) {
+            return 'Set up direct deposit';
+        }
+        
+        // Pattern like "$15,000 + maintain 90 days" or "$X + maintain"
+        const dollarPlusMaintainMatch = /\$?([\d,]+)\s*\+\s*maintain\s*(\d+)?\s*days?/i.exec(cleaned);
+        if (dollarPlusMaintainMatch) {
+            const amount = dollarPlusMaintainMatch[1];
+            const days = dollarPlusMaintainMatch[2];
+            if (days) {
+                return `$${amount} + maintain ${days} days`;
+            } else {
+                return `$${amount} + maintain`;
+            }
+        }
+        
+        // Complex multi-account requirements
+        if (/open both.*accounts.*and.*meet.*both/i.test(cleaned)) {
+            // Extract key requirements
+            const hasDirectDeposit = /direct deposit/i.test(cleaned);
+            const depositMatch = cleaned.match(/\$?([\d,]+)/);
+            const maintainMatch = /maintain.*?(\d+)\s*days/i.exec(cleaned);
+            
+            let parts = ['Open both accounts'];
+            if (hasDirectDeposit) parts.push('direct deposit');
+            if (depositMatch) parts.push(`$${depositMatch[1]} deposit`);
+            if (maintainMatch) parts.push(`maintain ${maintainMatch[1]} days`);
+            
+            return parts.join(' + ');
+        }
+        
+        // Simple deposit amounts with maintenance (different pattern)
+        const depositMaintainMatch = /deposit.*?\$?([\d,]+).*?maintain.*?(\d+)\s*days/i.exec(cleaned);
+        if (depositMaintainMatch) {
+            return `$${depositMaintainMatch[1]} deposit + maintain ${depositMaintainMatch[2]} days`;
+        }
+        
+        // Simple deposit amounts
+        const simpleDepositMatch = /deposit.*?\$?([\d,]+)/i.exec(cleaned);
+        if (simpleDepositMatch) {
+            return `$${simpleDepositMatch[1]} deposit`;
+        }
+        
+        // Maintenance requirements (fallback)
+        const maintainMatch = /maintain.*?\$?([\d,]+).*?(\d+)\s*days/i.exec(cleaned);
+        if (maintainMatch) {
+            return `Maintain $${maintainMatch[1]} for ${maintainMatch[2]} days`;
+        }
+        
+        // If none of the patterns match, try to create a generic short description
+        cleaned = cleaned
+            .replace(/At least (\d+|\w+) qualifying/i, '')
+            .replace(/electronic/i, '')
+            .replace(/within \d+ days/i, '')
+            .replace(/from employer.*?benefits/i, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        
+        // Final length check - truncate if still too long
+        if (cleaned.length > 40) {
+            cleaned = cleaned.substring(0, 37) + '...';
+        }
+        
+        return cleaned || 'See requirements';
+    };
+
     const createTierDisplay = (tiers, highestBonus) => {
         if (!tiers || tiers.length <= 1) {
             return '';
         }
 
-        const tierItems = tiers.map(tier => `
-            <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium text-gray-600">Tier ${tier.tier}:</span>
-                    <span class="text-sm text-gray-500">$${tier.deposit.toLocaleString()} deposit</span>
+        const tierItems = tiers.map(tier => {
+            // Format deposit requirement based on whether it's numeric or descriptive
+            let depositText;
+            if (tier.depositDescription) {
+                // Use shortened version of descriptive text for complex requirements
+                depositText = shortenTierDescription(tier.depositDescription);
+            } else if (tier.deposit === 0) {
+                depositText = "See requirements";
+            } else if (typeof tier.deposit === 'number') {
+                depositText = `$${tier.deposit.toLocaleString()} deposit`;
+            } else {
+                // Fallback for any other format
+                depositText = shortenTierDescription(String(tier.deposit));
+            }
+
+            return `
+                <div class="py-3 border-b border-gray-100 last:border-b-0">
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-sm font-medium text-gray-700">Tier ${tier.tier}</span>
+                        <span class="text-sm font-semibold text-green-600">$${tier.bonus ? tier.bonus.toLocaleString() : 'N/A'} bonus</span>
+                    </div>
+                    <div class="text-xs text-gray-600 max-w-md">
+                        ${depositText}
+                    </div>
                 </div>
-                <span class="text-sm font-semibold text-green-600">$${tier.bonus.toLocaleString()} bonus</span>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
         return `
             <div class="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
