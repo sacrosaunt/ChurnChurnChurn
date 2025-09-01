@@ -291,6 +291,43 @@ input[type="checkbox"].sr-only {
     opacity: 0;
 }
 
+/* N/A tile styles */
+.metric-tile-na.hidden {
+    display: none !important;
+}
+
+/* Hidden tiles indicator */
+.hidden-tiles-indicator {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border: 1px dashed #cbd5e1;
+}
+
+.hidden-tiles-indicator:hover {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    border-color: #94a3b8;
+}
+
+.hidden-tiles-toggle {
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.hidden-tiles-list {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out, opacity 0.2s ease-in-out, margin-top 0.2s ease-in-out;
+    opacity: 0;
+    visibility: hidden;
+    margin-top: 0;
+}
+
+.hidden-tiles-list.expanded {
+    max-height: 200px;
+    opacity: 1;
+    visibility: visible;
+    margin-top: 0.75rem; /* equivalent to mt-3 */
+}
+
 /* Responsive grid improvements */
 @media (max-width: 640px) {
     .grid-cols-1 {

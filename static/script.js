@@ -768,8 +768,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const oldProgressBar = document.getElementById('processing-progress-bar');
         const initialWidth = oldProgressBar ? oldProgressBar.style.width : '0%';
 
-        const createMetricTile = (label, value, { extraClass = '', subtitle = '', fieldName = '', offerId = '', hasClawback = false, clawbackDetails = '' } = {}) => `
-            <div class="metric-tile bg-white p-4 rounded-lg shadow-md text-center flex flex-col justify-center h-32 relative group" data-field="${fieldName}" data-offer-id="${offerId}">
+        const createMetricTile = (label, value, { extraClass = '', subtitle = '', fieldName = '', offerId = '', hasClawback = false, clawbackDetails = '' } = {}) => {
+            // Check if the value contains N/A or is empty/null
+            const isNAValue = !value || 
+                            String(value).toLowerCase() === 'n/a' || 
+                            String(value).includes('<span class="text-gray-500">N/A</span>') ||
+                            String(value).includes('<span class="text-gray-400">N/A</span>');
+            
+            const hiddenClass = isNAValue ? 'metric-tile-na hidden' : '';
+            
+            return `
+            <div class="metric-tile bg-white p-4 rounded-lg shadow-md text-center flex flex-col justify-center h-32 relative group ${hiddenClass}" data-field="${fieldName}" data-offer-id="${offerId}" data-label="${label}">
                 <dt class="text-sm font-medium text-gray-500 truncate">${label}</dt>
                 <dd class="metric-value mt-1 text-3xl font-bold tracking-tight ${extraClass}" data-field="${fieldName}">${value}</dd>
                 ${subtitle ? `<dd class="text-xs text-gray-400 -mt-1">${subtitle}</dd>` : ''}
@@ -797,6 +806,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </svg>
                 </button>
             </div>`;
+        };
 
         const createStatusSelector = (offer, initialProgressBarWidth) => {
             if (offer.status === 'processing') {
@@ -923,7 +933,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      ${createStatusSelector(offer, initialWidth)}
                 </div>
 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="metric-tiles-grid">
                     ${createMetricTile(TEXT_CONTENT.detail.initialDeposit, formatValue(offer.details.initial_deposit_amount, 'currency', { fieldName: 'initial_deposit_amount', offerStatus: offer.status }), { fieldName: 'initial_deposit_amount', offerId: offer.id })}
                     ${createMetricTile(TEXT_CONTENT.detail.totalDeposit, formatValue(offer.details.total_deposit_required, 'currency', { fieldName: 'total_deposit_required', offerStatus: offer.status }), { fieldName: 'total_deposit_required', offerId: offer.id })}
                     ${createMetricTile(TEXT_CONTENT.detail.offerExpires, formatValue(offer.details.deal_expiration_date, 'date', { fieldName: 'deal_expiration_date', offerStatus: offer.status, offer: offer }), { fieldName: 'deal_expiration_date', offerId: offer.id })}
@@ -934,6 +944,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${createMetricTile(TEXT_CONTENT.detail.bonusPayout, formatValue(offer.details.days_for_bonus, 'days', { fieldName: 'days_for_bonus', offerStatus: offer.status }), { fieldName: 'days_for_bonus', offerId: offer.id })}
                     ${createMetricTile(TEXT_CONTENT.detail.clawback, clawbackValue, { extraClass: clawbackClass, fieldName: 'clawback_clause_present', offerId: offer.id, hasClawback: hasClawback, clawbackDetails: clawbackDetails })}
                     ${createMetricTile(TEXT_CONTENT.detail.daysToWithdraw, formatValue(offer.details.must_be_open_for, 'days', { fieldName: 'must_be_open_for', offerStatus: offer.status }), { fieldName: 'must_be_open_for', offerId: offer.id })}
+                </div>
+                
+                <!-- Hidden tiles indicator -->
+                <div id="hidden-tiles-indicator" class="hidden-tiles-indicator bg-gray-50 border rounded-lg p-4 mt-4 hidden">
+                    <div class="hidden-tiles-toggle flex items-center justify-between cursor-pointer" onclick="toggleHiddenTiles()">
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L12 12m-3-3l6.364 6.364M21 21l-3.5-3.5m-2.5-2.5L9.878 9.878"></path>
+                            </svg>
+                            <span class="text-sm font-medium text-gray-700">
+                                <span id="hidden-tiles-count">0</span> metric tiles hidden (N/A values)
+                            </span>
+                        </div>
+                        <svg id="hidden-tiles-chevron" class="w-4 h-4 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </div>
+                    <div id="hidden-tiles-list" class="hidden-tiles-list">
+                        <div class="text-xs text-gray-600 mb-2">Hidden tiles:</div>
+                        <div id="hidden-tiles-names" class="flex flex-wrap gap-2">
+                            <!-- Hidden tile names will be populated here -->
+                        </div>
+                    </div>
                 </div>
                 
                 ${createConsiderationsList(offer)}
@@ -1377,6 +1410,50 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+        
+        // After rendering, update the hidden tiles indicator
+        updateHiddenTilesIndicator();
+    };
+
+    // Function to update the hidden tiles indicator
+    const updateHiddenTilesIndicator = () => {
+        const hiddenTiles = document.querySelectorAll('.metric-tile-na.hidden');
+        const indicator = document.getElementById('hidden-tiles-indicator');
+        const countElement = document.getElementById('hidden-tiles-count');
+        const namesContainer = document.getElementById('hidden-tiles-names');
+        
+        if (hiddenTiles.length > 0) {
+            indicator.classList.remove('hidden');
+            countElement.textContent = hiddenTiles.length;
+            
+            // Clear and populate the names
+            namesContainer.innerHTML = '';
+            hiddenTiles.forEach(tile => {
+                const label = tile.getAttribute('data-label');
+                if (label) {
+                    const nameTag = document.createElement('span');
+                    nameTag.className = 'bg-gray-200 text-gray-700 px-2 py-1 rounded-full text-xs';
+                    nameTag.textContent = label;
+                    namesContainer.appendChild(nameTag);
+                }
+            });
+        } else {
+            indicator.classList.add('hidden');
+        }
+    };
+
+    // Function to toggle the hidden tiles list visibility
+    window.toggleHiddenTiles = () => {
+        const list = document.getElementById('hidden-tiles-list');
+        const chevron = document.getElementById('hidden-tiles-chevron');
+        
+        if (list.classList.contains('expanded')) {
+            list.classList.remove('expanded');
+            chevron.style.transform = 'rotate(0deg)';
+        } else {
+            list.classList.add('expanded');
+            chevron.style.transform = 'rotate(180deg)';
+        }
     };
 
     const showListView = () => {
