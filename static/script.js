@@ -1106,8 +1106,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // Update the offer in app state
                                 app.offers[offerId] = updatedOffer;
                                 
-                                // Continue polling
-                                setTimeout(pollForUpdate, 500);
+                                // Automatic polling disabled - refresh manually if needed
+                                // setTimeout(pollForUpdate, 500);
                                                             } else {
                                     // Check if the progress div is still visible (user hasn't navigated away)
                                     if (!progressDiv.classList.contains('hidden')) {
@@ -1290,8 +1290,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // Update the offer in app state
                                 app.offers[offerId] = updatedOffer;
                                 
-                                // Continue polling
-                                setTimeout(pollForUpdate, 500);
+                                // Automatic polling disabled - refresh manually if needed
+                                // setTimeout(pollForUpdate, 500);
                                                             } else {
                                     // Check if the progress div is still visible (user hasn't navigated away)
                                     if (!progressDiv.classList.contains('hidden')) {
@@ -1479,9 +1479,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- DATA ACTIONS & ROUTING ---
     const scheduleNextFetch = () => {
-        const isProcessing = Object.values(app.offers).some(offer => offer.status === 'processing');
-        const delay = isProcessing ? 500 : 5000; // Fast polling for processing offers
-        setTimeout(fetchAllOffers, delay);
+        // Automatic polling disabled - only fetch when explicitly requested
+        // const isProcessing = Object.values(app.offers).some(offer => offer.status === 'processing');
+        // const delay = isProcessing ? 500 : 5000; // Fast polling for processing offers
+        // setTimeout(fetchAllOffers, delay);
     };
 
     const removeSkeletonLoaders = (el) => {
@@ -1856,8 +1857,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         app.offers[id] = updatedOffer;
                         
                         if (updatedOffer.status === 'processing') {
-                            // Still processing, continue polling
-                            setTimeout(pollForUpdate, 1000);
+                            // Still processing - automatic polling disabled
+                            // setTimeout(pollForUpdate, 1000);
                         } else if (updatedOffer.status === 'completed') {
                             // Processing complete, re-render
                             renderDetailView(updatedOffer);
@@ -1876,8 +1877,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 };
                 
-                // Start polling
-                setTimeout(pollForUpdate, 1000);
+                // Automatic polling disabled - check status manually if needed
+                // setTimeout(pollForUpdate, 1000);
                 
             } catch (error) {
                 console.error('Error refreshing offer:', error);
@@ -2039,6 +2040,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderOfferList();
     });
 
+
+
     const handleRouteChange = () => {
         const hash = window.location.hash;
         if (hash.startsWith('#/offer/')) {
@@ -2073,7 +2076,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handle initial route on page load (important for direct URLs like /offer/1)
     handleRouteChange();
     
-    fetchAllOffers(); // Initial fetch starts the polling loop
+    // Load offers on initial page load if we're on the main page
+    if (!window.location.hash || window.location.hash === '#') {
+        fetchAllOffers();
+    }
     
     // Make app globally accessible for planning page
     window.app = app;
