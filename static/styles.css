@@ -256,4 +256,56 @@ input[type="checkbox"].sr-only {
 
 .metric-tile:hover .clawback-tooltip {
     opacity: 1 !important;
-} 
+}
+
+/* Offer tile styles */
+.offer-tile {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.offer-tile:hover {
+    transform: translateY(-2px);
+}
+
+/* Status group headers */
+.status-group-header {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+/* Collapsible group styles */
+.group-collapse-icon {
+    transition: transform 0.2s ease-in-out;
+}
+
+.status-group-collapsed .group-collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.status-group-content {
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out, opacity 0.2s ease-in-out;
+}
+
+.status-group-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+}
+
+/* Responsive grid improvements */
+@media (max-width: 640px) {
+    .grid-cols-1 {
+        gap: 0.75rem;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+    .md\:grid-cols-2 > * {
+        min-height: 180px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .lg\:grid-cols-3 > * {
+        min-height: 180px;
+    }
+}

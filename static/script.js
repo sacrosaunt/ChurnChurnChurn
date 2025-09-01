@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
         manualSubmitSpinner: document.getElementById('manual-submit-spinner'),
         // State
         offers: {},
-        currentFilter: 'all',
+        currentFilter: 'status',
         isAscending: false,
         currentMode: 'url', // 'url' or 'manual'
         originalUrlForManual: null, // Track original URL when switching from failed scrape
@@ -496,19 +496,21 @@ document.addEventListener('DOMContentLoaded', () => {
             filterContainer.classList.toggle('hidden', offersArray.length === 0);
         }
         
-
-
         let totalClaimed = 0;
         let totalPending = 0;
 
-        sortOffers(offersArray).forEach(offer => {
-            const { statusClass, statusText } = getOfferStatus(offer);
-            const row = document.createElement('a');
-            row.href = `#/offer/${offer.id}`;
-            row.className = 'block p-4 border-b border-gray-200 hover:bg-gray-50 transition duration-150 ease-in-out';
-            
-            const bonusAmount = parseFloat(String(offer.details.bonus_to_be_received).replace(/[^0-9.-]+/g,""));
+        const sortedOffers = sortOffers(offersArray);
 
+        // Group offers by status if status filter is selected
+        if (app.currentFilter === 'status') {
+            renderOffersGroupedByStatus(sortedOffers);
+        } else {
+            renderOffersAsTiles(sortedOffers);
+        }
+
+        // Calculate totals for all offers
+        sortedOffers.forEach(offer => {
+            const bonusAmount = parseFloat(String(offer.details.bonus_to_be_received).replace(/[^0-9.-]+/g,""));
             if (!isNaN(bonusAmount)) {
                 if (offer.user_controlled.received) {
                     totalClaimed += bonusAmount;
@@ -516,36 +518,146 @@ document.addEventListener('DOMContentLoaded', () => {
                     totalPending += bonusAmount;
                 }
             }
-
-            // Parse tier information for list view
-            const tiers = parseTierData(offer.details.bonus_tiers_detailed, offer.details.total_deposit_by_tier);
-            const hasMultipleTiers = tiers && tiers.length > 1;
-            const highestBonus = tiers ? Math.max(...tiers.map(t => t.bonus)) : bonusAmount;
-
-            row.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold text-blue-600" data-field="bank_name">${formatValue(offer.details.bank_name, 'text', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'bank_name' })}</p>
-                        <p class="text-lg font-bold text-gray-900 truncate" data-field="account_title">${formatValue(offer.details.account_title, 'text', { skeletonOptions: { width: 'w-48', alignClass: '' }, offerStatus: offer.status, fieldName: 'account_title' })}</p>
-                        <p class="text-sm text-gray-500 flex items-center gap-x-1">
-                            <span>${TEXT_CONTENT.list.expires}</span>
-                            <span data-field="deal_expiration_date">${formatValue(offer.details.deal_expiration_date, 'date', { skeletonOptions: { width: 'w-24', alignClass: '' }, offerStatus: offer.status, fieldName: 'deal_expiration_date' })}</span>
-                        </p>
-                        ${hasMultipleTiers ? '<p class="text-xs text-blue-600 mt-1">Multiple tiers available</p>' : ''}
-                    </div>
-                    <div class="flex-shrink-0 ml-4 text-right">
-                        <p class="text-xl font-bold text-green-600" data-field="bonus_to_be_received">
-                            ${hasMultipleTiers ? `Up to ${formatValue(highestBonus, 'currency')}` : formatValue(offer.details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-24', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
-                        </p>
-                        <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">${statusText}</span>
-                    </div>
-                </div>
-            `;
-            app.offersList.appendChild(row);
         });
 
         app.totalClaimedEl.textContent = `$${totalClaimed.toLocaleString()}`;
         app.totalPendingEl.textContent = `$${totalPending.toLocaleString()}`;
+    };
+
+    const renderOffersAsTiles = (offers) => {
+        // Create a grid container for tiles
+        const tilesContainer = document.createElement('div');
+        tilesContainer.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4';
+        
+        offers.forEach(offer => {
+            const tile = createOfferTile(offer);
+            tilesContainer.appendChild(tile);
+        });
+        
+        app.offersList.appendChild(tilesContainer);
+    };
+
+    const renderOffersGroupedByStatus = (offers) => {
+        // Group offers by status
+        const groupedOffers = {};
+        const baseStatusOrder = ['unopened', 'pending_deposit', 'waiting', 'processing', 'claimed', 'failed'];
+        
+        // Apply sort order to status groups - reverse for descending
+        const statusOrder = app.isAscending ? baseStatusOrder : [...baseStatusOrder].reverse();
+        
+        offers.forEach(offer => {
+            const { statusText } = getOfferStatus(offer);
+            const statusKey = getStatusKey(offer);
+            if (!groupedOffers[statusKey]) {
+                groupedOffers[statusKey] = { statusText, offers: [] };
+            }
+            groupedOffers[statusKey].offers.push(offer);
+        });
+
+        // Render groups in order
+        statusOrder.forEach(statusKey => {
+            if (groupedOffers[statusKey] && groupedOffers[statusKey].offers.length > 0) {
+                const group = groupedOffers[statusKey];
+                
+                // Create status group header
+                const groupHeader = document.createElement('div');
+                groupHeader.className = 'px-4 py-3 bg-gray-100 border-b border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors duration-200';
+                groupHeader.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                            ${group.statusText} (${group.offers.length})
+                        </h3>
+                        <svg class="w-5 h-5 text-gray-500 transition-transform duration-200 group-collapse-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </div>
+                `;
+                
+                // Add click handler for collapse/expand
+                groupHeader.addEventListener('click', () => {
+                    const icon = groupHeader.querySelector('.group-collapse-icon');
+                    const tilesContainer = groupHeader.nextElementSibling;
+                    const isCollapsed = tilesContainer.style.display === 'none';
+                    
+                    if (isCollapsed) {
+                        tilesContainer.style.display = 'grid';
+                        icon.style.transform = 'rotate(0deg)';
+                    } else {
+                        tilesContainer.style.display = 'none';
+                        icon.style.transform = 'rotate(-90deg)';
+                    }
+                });
+                
+                app.offersList.appendChild(groupHeader);
+                
+                // Create tiles container for this group
+                const tilesContainer = document.createElement('div');
+                tilesContainer.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 transition-all duration-200';
+                
+                group.offers.forEach(offer => {
+                    const tile = createOfferTile(offer);
+                    tilesContainer.appendChild(tile);
+                });
+                
+                app.offersList.appendChild(tilesContainer);
+            }
+        });
+    };
+
+    const createOfferTile = (offer) => {
+        const { statusClass, statusText } = getOfferStatus(offer);
+        const tile = document.createElement('a');
+        tile.href = `#/offer/${offer.id}`;
+        tile.className = 'block bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-300 transition-all duration-200 p-4';
+        
+        const bonusAmount = parseFloat(String(offer.details.bonus_to_be_received).replace(/[^0-9.-]+/g,""));
+
+        // Parse tier information for tile view
+        const tiers = parseTierData(offer.details.bonus_tiers_detailed, offer.details.total_deposit_by_tier);
+        const hasMultipleTiers = tiers && tiers.length > 1;
+        const highestBonus = tiers ? Math.max(...tiers.map(t => t.bonus)) : bonusAmount;
+
+        tile.innerHTML = `
+            <div class="flex flex-col h-full">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-blue-600 truncate" data-field="bank_name">
+                            ${formatValue(offer.details.bank_name, 'text', { skeletonOptions: { width: 'w-24', alignClass: '' }, offerStatus: offer.status, fieldName: 'bank_name' })}
+                        </p>
+                        <h3 class="text-lg font-bold text-gray-900 truncate leading-tight" data-field="account_title">
+                            ${formatValue(offer.details.account_title, 'text', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'account_title' })}
+                        </h3>
+                    </div>
+                    <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass} ml-2">
+                        ${statusText}
+                    </span>
+                </div>
+                
+                <div class="flex-1 mb-3">
+                    <div class="text-2xl font-bold text-green-600 mb-2" data-field="bonus_to_be_received">
+                        ${hasMultipleTiers ? `Up to ${formatValue(highestBonus, 'currency')}` : formatValue(offer.details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-20', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
+                    </div>
+                    ${hasMultipleTiers ? '<p class="text-xs text-blue-600 mb-2">Multiple tiers available</p>' : ''}
+                </div>
+                
+                <div class="text-sm text-gray-500 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <span>${TEXT_CONTENT.list.expires}</span>
+                    <span class="ml-1" data-field="deal_expiration_date">
+                        ${formatValue(offer.details.deal_expiration_date, 'date', { skeletonOptions: { width: 'w-16', alignClass: '' }, offerStatus: offer.status, fieldName: 'deal_expiration_date' })}
+                    </span>
+                </div>
+            </div>
+        `;
+        
+        return tile;
+    };
+
+    const getStatusKey = (offer) => {
+        const { statusClass } = getOfferStatus(offer);
+        return statusClass.replace('status-', '').replace(' ', '_');
     };
 
     const renderDetailView = (offer) => {
