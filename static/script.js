@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- TEXT CONFIGURATION ---
     const TEXT_CONTENT = {
         app: {
-            title: 'ChurnChurnChurn',
+            title: 'Churn³',
             mainTitle: 'Dashboard',
             subtitle: 'Track and manage your bank account bonus offers with ChurnChurnChurn.',
             addOfferTitle: 'Add New Offer',
