@@ -511,12 +511,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             return `
-                <div class="py-3 border-b border-gray-100 last:border-b-0">
+                <div class="py-2 border-b border-gray-100 last:border-b-0">
                     <div class="flex justify-between items-start mb-1">
-                        <span class="text-sm font-medium text-gray-700">Tier ${tier.tier}</span>
-                        <span class="text-sm font-semibold text-green-600">$${tier.bonus ? tier.bonus.toLocaleString() : 'N/A'} bonus</span>
+                        <span class="text-xs font-medium text-gray-700">Tier ${tier.tier}</span>
+                        <span class="text-xs font-semibold text-green-600">$${tier.bonus ? tier.bonus.toLocaleString() : 'N/A'}</span>
                     </div>
-                    <div class="text-xs text-gray-600 max-w-md">
+                    <div class="text-xs text-gray-500">
                         ${depositText}
                     </div>
                 </div>
@@ -524,12 +524,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
 
         return `
-            <div class="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-sm font-medium text-blue-800">Multiple Tiers Available</span>
-                    <span class="text-xs text-blue-600">Up to ${formatValue(highestBonus, 'currency')}</span>
+            <div class="bg-white rounded-lg shadow-md border border-gray-200 p-4 w-80">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-sm font-semibold text-gray-800">Tier Options</span>
+                    <span class="text-xs font-medium text-green-600">Up to ${formatValue(highestBonus, 'currency')}</span>
                 </div>
-                <div class="space-y-1">
+                <div class="space-y-2 max-h-64 overflow-y-auto">
                     ${tierItems}
                 </div>
             </div>
@@ -1148,7 +1148,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                             </div>
                         </div>
-                        ${hasMultipleTiers ? createTierDisplay(tiers, highestBonus) : ''}
                     </header>
             <div class="space-y-6">
                 ${offer.status === 'processing' ? `<div class="bg-white p-6 rounded-lg shadow-md">
@@ -1224,8 +1223,9 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
 
         <!-- Status Control -->
-        <div class="fixed right-8 top-8 z-50">
+        <div class="fixed right-8 top-8 z-50 space-y-4">
             ${createStatusDropdown(offer)}
+            ${hasMultipleTiers ? createTierDisplay(tiers, highestBonus) : ''}
         </div>
     </div>
         `;
