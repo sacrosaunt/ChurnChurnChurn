@@ -1315,8 +1315,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // Update the offer in app state
                                 app.offers[offerId] = updatedOffer;
                                 
-                                // Automatic polling disabled - refresh manually if needed
-                                // setTimeout(pollForUpdate, 500);
+                                // Continue polling every 500ms during refresh
+                                setTimeout(pollForUpdate, 500);
                                                             } else {
                                     // Check if the progress div is still visible (user hasn't navigated away)
                                     if (!progressDiv.classList.contains('hidden')) {
@@ -1503,8 +1503,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // Update the offer in app state
                                 app.offers[offerId] = updatedOffer;
                                 
-                                // Automatic polling disabled - refresh manually if needed
-                                // setTimeout(pollForUpdate, 500);
+                                // Continue polling every 500ms during refresh
+                                setTimeout(pollForUpdate, 500);
                                                             } else {
                                     // Check if the progress div is still visible (user hasn't navigated away)
                                     if (!progressDiv.classList.contains('hidden')) {
