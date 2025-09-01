@@ -163,4 +163,4 @@ This information is crucial because many bank offers are restricted to "new cust
         offers[offer_id]['status'] = 'completed'
         # Save the completed offer to storage
         save_offer(offer_id)
-        print(f"✅ Offer {offer_id} status set to completed")
+        print(f"✅ Offer {offer_id} processing completed")

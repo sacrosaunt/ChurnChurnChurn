@@ -933,7 +933,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </svg>
                     <div class="clawback-tooltip absolute left-0 top-8 bg-gray-900 text-white text-xs rounded py-2 px-3 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
                         <div class="font-semibold mb-1">⚠️ Clawback Clause</div>
-                        <div class="text-gray-300">${clawbackDetails && clawbackDetails !== 'N/A' ? clawbackDetails : 'The bank can take back the bonus if you close the account early or don\'t meet requirements.'}</div>
+                        <div class="text-gray-300">${clawbackDetails && clawbackDetails !== 'N/A' && clawbackDetails !== 'Processing...' ? clawbackDetails : clawbackDetails === 'Processing...' ? 'Processing clawback details...' : 'The bank can take back the bonus if you close the account early or don\'t meet requirements.'}</div>
                         <div class="absolute top-0 left-4 transform -translate-y-1 w-2 h-2 bg-gray-900 rotate-45"></div>
                     </div>
                 </div>` : ''}
@@ -1041,10 +1041,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const bonusAmount = parseFloat(String(offer.details.bonus_to_be_received).replace(/[^0-9.-]+/g,""));
         const feeIsConditional = String(offer.details.fee_is_conditional).toLowerCase() === 'yes';
-        const hasClawback = String(offer.details.clawback_clause_present).toLowerCase() === 'yes';
+        const clawbackStatus = String(offer.details.clawback_clause_present);
+        const hasClawback = clawbackStatus.toLowerCase() === 'yes' || clawbackStatus === 'Processing...';
         const clawbackDetails = offer.details.clawback_details;
-        const clawbackValue = hasClawback ? 'Yes' : 'No';
-        const clawbackClass = hasClawback ? 'text-red-600' : 'text-green-600';
+        const clawbackValue = formatValue(clawbackStatus === 'Processing...' ? 'Processing...' : (clawbackStatus.toLowerCase() === 'yes' ? 'Yes' : 'No'), 'text', { offerStatus: offer.status, fieldName: 'clawback_clause_present' });
+        const clawbackClass = clawbackStatus === 'Processing...' ? 'text-blue-600' : (clawbackStatus.toLowerCase() === 'yes' ? 'text-red-600' : 'text-green-600');
 
         // Parse tier information
         const tiers = parseTierData(offer.details.bonus_tiers_detailed, offer.details.total_deposit_by_tier);
