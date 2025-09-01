@@ -860,12 +860,21 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add back button functionality for failed offers
             const backButton = document.querySelector('a[href="#"]');
             if (backButton) {
-                backButton.addEventListener('click', (e) => {
+                backButton.addEventListener('click', async (e) => {
                     e.preventDefault();
+                    console.log('🔙 Back button clicked (failed offer), previousPage:', app.previousPage);
                     if (app.previousPage === 'planning') {
                         window.location.href = '/planning';
                     } else {
+                        console.log('🔄 Refreshing offers before returning to dashboard');
+                        // Refresh offers before navigating back to dashboard
+                        await fetchAllOffers();
                         window.location.hash = '';
+                        // Force a re-render of the dashboard to show updated data
+                        setTimeout(() => {
+                            console.log('🏠 Forcing handleRouteChange to refresh dashboard');
+                            handleRouteChange();
+                        }, 10);
                     }
                 });
             }
@@ -1168,12 +1177,21 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('refresh-all-btn').addEventListener('click', refreshAllData);
         
         // Add back button functionality
-        document.getElementById('back-button').addEventListener('click', (e) => {
+        document.getElementById('back-button').addEventListener('click', async (e) => {
             e.preventDefault();
+            console.log('🔙 Back button clicked, previousPage:', app.previousPage);
             if (app.previousPage === 'planning') {
                 window.location.href = '/planning';
             } else {
+                console.log('🔄 Refreshing offers before returning to dashboard');
+                // Refresh offers before navigating back to dashboard
+                await fetchAllOffers();
                 window.location.hash = '';
+                // Force a re-render of the dashboard to show updated data
+                setTimeout(() => {
+                    console.log('🏠 Forcing handleRouteChange to refresh dashboard');
+                    handleRouteChange();
+                }, 10);
             }
         });
         
@@ -1710,10 +1728,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- DATA ACTIONS & ROUTING ---
     const scheduleNextFetch = () => {
-        // Automatic polling disabled - only fetch when explicitly requested
-        // const isProcessing = Object.values(app.offers).some(offer => offer.status === 'processing');
-        // const delay = isProcessing ? 500 : 5000; // Fast polling for processing offers
-        // setTimeout(fetchAllOffers, delay);
+        // Check if any offers are processing or if any refresh operations are in progress
+        const isProcessing = Object.values(app.offers).some(offer => offer.status === 'processing');
+        const isRefreshing = Object.values(app.offers).some(offer => offer.refresh_status && 
+            Object.values(offer.refresh_status).some(status => status === 'rescraping' || status === 'processing'));
+        
+        // Debug logging
+        if (isProcessing || isRefreshing) {
+            console.log(`🔄 Scheduling next fetch in 500ms - Processing: ${isProcessing}, Refreshing: ${isRefreshing}`);
+        }
+        
+        // Fast polling during processing/rescraping, otherwise no polling
+        if (isProcessing || isRefreshing) {
+            setTimeout(fetchAllOffers, 500);
+        }
     };
 
     const removeSkeletonLoaders = (el) => {
@@ -1791,6 +1819,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchAllOffers = async () => {
         try {
+            console.log('🔍 fetchAllOffers called');
             const response = await fetch(API_URL);
             const offersData = await response.json();
             let hasChanged = false;
@@ -2023,6 +2052,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 offer.status = 'processing';
                 offer.processing_step = offer.url.startsWith('manual-content-') ? 'Validating Content' : 'Scraping Website';
                 
+                // Start polling immediately for refresh operations
+                console.log('🚀 Starting polling for refresh operation:', offer.id);
+                scheduleNextFetch();
+                
                 // Reset all details to Processing... state
                 offer.details = {
                     bank_name: 'Processing...',
@@ -2189,6 +2222,11 @@ document.addEventListener('DOMContentLoaded', () => {
             app.offers[newOffer.id] = newOffer;
             app.urlInput.value = '';
             handleRouteChange();
+            // Start polling immediately if the new offer is processing
+            if (newOffer.status === 'processing') {
+                console.log('🚀 Starting polling for new processing offer:', newOffer.id);
+                scheduleNextFetch();
+            }
             // Go directly to the new offer's detail page
             window.location.hash = `#/offer/${newOffer.id}`;
 
@@ -2233,6 +2271,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 app.manualContent.value = ''; // Clear the manual input
                 app.originalUrlForManual = null; // Clear the original URL
                 handleRouteChange();
+                // Start polling immediately if the new offer is processing
+                if (newOffer.status === 'processing') {
+                    console.log('🚀 Starting polling for new processing offer (manual):', newOffer.id);
+                    scheduleNextFetch();
+                }
                 // Go directly to the new offer's detail page
                 window.location.hash = `#/offer/${newOffer.id}`;
 
