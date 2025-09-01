@@ -246,7 +246,7 @@ input[type="checkbox"].sr-only {
 
 /* Clawback tooltip styles */
 .clawback-tooltip {
-    max-width: 250px;
+    max-width: 400px;
     white-space: normal;
     word-wrap: break-word;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
