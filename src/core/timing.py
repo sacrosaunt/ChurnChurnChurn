@@ -41,7 +41,11 @@ class Timing:
         deposits_required = int(str(details.get('num_required_deposits', '1')).replace(' days', '')) or 1
         
         # Get minimum deposit amount
-        min_deposit = int(str(details.get('minimum_deposit_amount', '0')).replace(',', '')) or 0
+        min_deposit_str = str(details.get('minimum_deposit_amount', '0')).replace('$', '').replace(',', '')
+        try:
+            min_deposit = int(float(min_deposit_str)) if min_deposit_str.strip() else 0
+        except (ValueError, TypeError):
+            min_deposit = 0
         
         # Calculate multiple deposit dates if required
         deposit_dates = []
@@ -130,7 +134,11 @@ class Timing:
         deposits_required = int(str(details.get('num_required_deposits', '1')).replace(' days', '')) or 1
         
         # Get minimum deposit amount
-        min_deposit = int(str(details.get('minimum_deposit_amount', '0')).replace(',', '')) or 0
+        min_deposit_str = str(details.get('minimum_deposit_amount', '0')).replace('$', '').replace(',', '')
+        try:
+            min_deposit = int(float(min_deposit_str)) if min_deposit_str.strip() else 0
+        except (ValueError, TypeError):
+            min_deposit = 0
         
         # Calculate multiple deposit dates if required
         deposit_dates = []
