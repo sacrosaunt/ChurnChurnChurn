@@ -3,23 +3,23 @@ body {
 }
 
 .status-unopened { 
-    background-color: #e0f2fe; 
-    color: #0c4a6e; 
+    background-color: #f3f4f6; 
+    color: #6b7280; 
 }
 
 .status-pending-deposit { 
     background-color: #fef3c7; 
-    color: #92400e; 
+    color: #f59e0b; 
 }
 
 .status-waiting { 
-    background-color: #fef9c3; 
-    color: #854d0e; 
+    background-color: #dbeafe; 
+    color: #3b82f6; 
 }
 
 .status-claimed { 
     background-color: #dcfce7; 
-    color: #166534; 
+    color: #22c55e; 
 }
 
 .status-processing { 
@@ -300,12 +300,12 @@ input[type="checkbox"].sr-only {
 
 /* Hidden tiles indicator */
 .hidden-tiles-indicator {
-    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    background: #f8fafc;
     border: 1px dashed #cbd5e1;
 }
 
 .hidden-tiles-indicator:hover {
-    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    background: #f1f5f9;
     border-color: #94a3b8;
 }
 
@@ -346,5 +346,227 @@ input[type="checkbox"].sr-only {
 @media (min-width: 1024px) {
     .lg\:grid-cols-3 > * {
         min-height: 180px;
+    }
+}
+
+/* Detail layout with sidebar */
+.detail-layout {
+    display: flex;
+    gap: 2rem;
+    min-height: 100vh;
+}
+
+.detail-main-content {
+    flex: 1;
+    min-width: 0; /* Prevent flex item from overflowing */
+}
+
+/* Position status dropdown as direct child of detail-layout */
+.detail-layout > .relative {
+    width: 220px;
+    flex-shrink: 0;
+    height: fit-content;
+    position: sticky;
+    top: 2rem;
+    padding-top: 8rem; /* Align with main content */
+}
+
+/* Status oblong button styles */
+.status-oblong-button {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 2rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    width: 100%;
+    position: relative;
+}
+
+.status-oblong-button:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.status-oblong-button.processing {
+    cursor: default;
+    background: #f3f4f6;
+}
+
+.status-oblong-button.processing:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.status-dot {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    margin-right: 0.75rem;
+    flex-shrink: 0;
+}
+
+.processing-dot {
+    background: none;
+    width: auto;
+    height: auto;
+    margin-right: 0.5rem;
+}
+
+.status-label {
+    flex: 1;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.status-chevron {
+    width: 1rem;
+    height: 1rem;
+    color: #6b7280;
+    margin-left: 0.5rem;
+    transition: transform 0.2s ease-in-out;
+}
+
+.status-dropdown-menu {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform-origin: top right;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+    transform: scale(0.95) translateY(-8px);
+}
+
+.status-dropdown-menu.show {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+}
+
+.status-dropdown-menu.hidden {
+    opacity: 0;
+    transform: scale(0.95) translateY(-8px);
+    pointer-events: none;
+}
+
+.status-dropdown-option .status-dot {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+.status-dropdown-option {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(0);
+}
+
+.status-dropdown-option:hover {
+    transform: translateX(4px);
+    background-color: #f8fafc !important;
+}
+
+.status-dropdown-option:active {
+    transform: translateX(2px) scale(0.98);
+}
+
+.status-chevron.rotated {
+    transform: rotate(180deg);
+}
+
+/* Staggered animation for dropdown options */
+.status-dropdown-menu.show .status-dropdown-option {
+    animation: slideInFromRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    opacity: 0;
+    transform: translateX(20px);
+}
+
+.status-dropdown-menu.show .status-dropdown-option:nth-child(1) { animation-delay: 0.05s; }
+.status-dropdown-menu.show .status-dropdown-option:nth-child(2) { animation-delay: 0.1s; }
+.status-dropdown-menu.show .status-dropdown-option:nth-child(3) { animation-delay: 0.15s; }
+.status-dropdown-menu.show .status-dropdown-option:nth-child(4) { animation-delay: 0.2s; }
+
+@keyframes slideInFromRight {
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Status transition animations */
+.status-oblong-button {
+    position: relative;
+    overflow: hidden;
+}
+
+.status-dot {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.status-label {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sliding animation for status changes */
+.status-slide-out {
+    animation: slideOutLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.status-slide-in {
+    animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes slideOutLeft {
+    0% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+}
+
+@keyframes slideInRight {
+    0% {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Pulse animation for status dot */
+.status-dot-pulse {
+    animation: statusPulse 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes statusPulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+
+
+/* Responsive design */
+@media (max-width: 1024px) {
+    .detail-layout {
+        flex-direction: column;
+    }
+    
+    .detail-layout > .relative {
+        width: 100%;
+        position: static;
+        margin-top: 2rem;
+        padding-top: 0;
     }
 }

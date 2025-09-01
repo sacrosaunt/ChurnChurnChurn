@@ -973,6 +973,59 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
         };
 
+        const createStatusDropdown = (offer) => {
+            if (offer.status === 'processing') {
+                return `
+                    <div class="status-oblong-button processing">
+                        <div class="status-dot processing-dot">
+                            <svg class="animate-spin h-3 w-3 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </div>
+                        <span class="status-label">${TEXT_CONTENT.status.processing}</span>
+                    </div>
+                `;
+            }
+
+            const statuses = [
+                { key: 'unopened', label: TEXT_CONTENT.status.unopened, dotColor: '#6b7280' },    // grey
+                { key: 'opened', label: TEXT_CONTENT.status.opened, dotColor: '#f59e0b' },        // amber - action needed
+                { key: 'deposited', label: TEXT_CONTENT.status.deposited, dotColor: '#3b82f6' },  // blue - waiting for bonus
+                { key: 'received', label: TEXT_CONTENT.status.claimed, dotColor: '#22c55e' }      // green - completed
+            ];
+
+            let currentStatusKey = 'unopened';
+            if (offer.user_controlled && offer.user_controlled.received) currentStatusKey = 'received';
+            else if (offer.user_controlled && offer.user_controlled.deposited) currentStatusKey = 'deposited';
+            else if (offer.user_controlled && offer.user_controlled.opened) currentStatusKey = 'opened';
+
+            const currentStatus = statuses.find(s => s.key === currentStatusKey);
+
+            return `
+                <div class="relative">
+                    <button type="button" class="status-oblong-button status-dropdown-trigger" data-offer-id="${offer.id}">
+                        <div class="status-dot" style="background-color: ${currentStatus.dotColor}"></div>
+                        <span class="status-label">${currentStatus.label}</span>
+                        <svg class="status-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <div class="status-dropdown-menu absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
+                        <div class="py-2">
+                            ${statuses.map(status => `
+                                <button type="button" class="status-dropdown-option flex items-center w-full text-left px-4 py-3 text-sm transition-colors duration-150 hover:bg-gray-50 ${status.key === currentStatusKey ? 'bg-blue-50' : ''}" data-status="${status.key}" data-id="${offer.id}">
+                                    <div class="status-dot mr-3" style="background-color: ${status.dotColor}"></div>
+                                    <span class="flex-1">${status.label}</span>
+                                    ${status.key === currentStatusKey ? '<svg class="h-4 w-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>' : ''}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
         const createStatusSelector = (offer, initialProgressBarWidth) => {
             if (offer.status === 'processing') {
                 // Determine if this is a manual mode offer
@@ -1073,31 +1126,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const highestBonus = tiers ? Math.max(...tiers.map(t => t.bonus)) : bonusAmount;
 
         app.detailView.innerHTML = `
-            <header class="mb-8 pt-8">
-                <a href="#" id="back-button" class="inline-flex items-center text-blue-600 hover:underline">
-                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                    ${app.previousPage === 'planning' ? 'Back to Planning' : TEXT_CONTENT.detail.backLink}
-                </a>
-                <div class="mt-4 md:flex justify-between items-start">
-                    <div class="flex-1">
-                        <h1 class="text-4xl font-bold text-gray-900" data-field="account_title">${formatValue(details.account_title, 'text', { skeletonOptions: { width: 'w-3/4', alignClass: '' }, offerStatus: offer.status, fieldName: 'account_title' })}</h1>
-                        <p class="text-2xl text-gray-600 mt-1" data-field="bank_name">${formatValue(details.bank_name, 'text', { skeletonOptions: { width: 'w-1/2', alignClass: '' }, offerStatus: offer.status, fieldName: 'bank_name' })}</p>
-                    </div>
-                    <div class="text-left md:text-right mt-4 md:mt-0 md:ml-6">
-                        <div class="flex flex-col items-end">
-                            <p class="text-5xl font-bold text-green-600" data-field="bonus_to_be_received">
-                                ${hasMultipleTiers ? `Up to ${formatValue(highestBonus, 'currency')}` : formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
-                            </p>
-                            ${hasMultipleTiers ? '<span class="text-sm text-gray-500 mt-1">Multiple tiers available</span>' : ''}
+            <div class="detail-layout flex justify-center">
+                <!-- Main Content -->
+                <div class="detail-main-content flex-1 max-w-4xl">
+                    <header class="mb-8 pt-8">
+                        <a href="#" id="back-button" class="inline-flex items-center text-blue-600 hover:underline mb-4">
+                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                            ${app.previousPage === 'planning' ? 'Back to Planning' : TEXT_CONTENT.detail.backLink}
+                        </a>
+                        <div class="md:flex justify-between items-start">
+                            <div class="flex-1">
+                                <h1 class="text-4xl font-bold text-gray-900" data-field="account_title">${formatValue(details.account_title, 'text', { skeletonOptions: { width: 'w-3/4', alignClass: '' }, offerStatus: offer.status, fieldName: 'account_title' })}</h1>
+                                <p class="text-2xl text-gray-600 mt-1" data-field="bank_name">${formatValue(details.bank_name, 'text', { skeletonOptions: { width: 'w-1/2', alignClass: '' }, offerStatus: offer.status, fieldName: 'bank_name' })}</p>
+                            </div>
+                            <div class="text-left md:text-right mt-4 md:mt-0 md:ml-6">
+                                <div class="flex flex-col items-end">
+                                    <p class="text-5xl font-bold text-green-600" data-field="bonus_to_be_received">
+                                        ${hasMultipleTiers ? `Up to ${formatValue(highestBonus, 'currency')}` : formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
+                                    </p>
+                                    ${hasMultipleTiers ? '<span class="text-sm text-gray-500 mt-1">Multiple tiers available</span>' : ''}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-                ${hasMultipleTiers ? createTierDisplay(tiers, highestBonus) : ''}
-            </header>
+                        ${hasMultipleTiers ? createTierDisplay(tiers, highestBonus) : ''}
+                    </header>
             <div class="space-y-6">
-                <div class="bg-white p-6 rounded-lg shadow-md">
+                ${offer.status === 'processing' ? `<div class="bg-white p-6 rounded-lg shadow-md">
                      ${createStatusSelector(offer, initialWidth)}
-                </div>
+                </div>` : ''}
 
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="metric-tiles-grid">
                     ${createMetricTile(TEXT_CONTENT.detail.initialDeposit, formatValue(details.initial_deposit_amount, 'currency', { fieldName: 'initial_deposit_amount', offerStatus: offer.status }), { fieldName: 'initial_deposit_amount', offerId: offer.id })}
@@ -1165,6 +1221,13 @@ document.addEventListener('DOMContentLoaded', () => {
                      </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Status Control -->
+        <div class="fixed right-8 top-8 z-50">
+            ${createStatusDropdown(offer)}
+        </div>
+    </div>
         `;
 
         const progressBar = document.getElementById('processing-progress-bar');
@@ -1184,6 +1247,60 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateOfferStatus(id, status);
             });
         });
+
+        // Add status dropdown functionality
+        const statusDropdownTrigger = document.querySelector('.status-dropdown-trigger');
+        const statusDropdownMenu = document.querySelector('.status-dropdown-menu');
+        const statusChevron = document.querySelector('.status-chevron');
+        
+        if (statusDropdownTrigger && statusDropdownMenu) {
+            // Toggle dropdown on trigger click
+            statusDropdownTrigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                if (statusDropdownMenu.classList.contains('hidden')) {
+                    // Show dropdown
+                    statusDropdownMenu.classList.remove('hidden');
+                    statusDropdownMenu.classList.add('show');
+                    if (statusChevron) statusChevron.classList.add('rotated');
+                } else {
+                    // Hide dropdown
+                    statusDropdownMenu.classList.remove('show');
+                    statusDropdownMenu.classList.add('hidden');
+                    if (statusChevron) statusChevron.classList.remove('rotated');
+                }
+            });
+
+            // Handle dropdown option selection
+            document.querySelectorAll('.status-dropdown-option').forEach(option => {
+                option.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = e.currentTarget.dataset.id;
+                    const status = e.currentTarget.dataset.status;
+                    
+                    // Prevent rapid clicking
+                    if (statusUpdateTimeout) {
+                        return;
+                    }
+                    
+                    updateOfferStatus(id, status);
+                    
+                    // Animate closing
+                    statusDropdownMenu.classList.remove('show');
+                    statusDropdownMenu.classList.add('hidden');
+                    if (statusChevron) statusChevron.classList.remove('rotated');
+                });
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!statusDropdownTrigger.contains(e.target) && !statusDropdownMenu.contains(e.target)) {
+                    statusDropdownMenu.classList.remove('show');
+                    statusDropdownMenu.classList.add('hidden');
+                    if (statusChevron) statusChevron.classList.remove('rotated');
+                }
+            });
+        }
         document.getElementById('delete-offer-btn').addEventListener('click', deleteOffer);
         document.getElementById('refresh-all-btn').addEventListener('click', refreshAllData);
         
@@ -1983,40 +2100,178 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
+    const getCurrentStatusKey = (offer) => {
+        if (offer.user_controlled && offer.user_controlled.received) return 'received';
+        if (offer.user_controlled && offer.user_controlled.deposited) return 'deposited';
+        if (offer.user_controlled && offer.user_controlled.opened) return 'opened';
+        return 'unopened';
+    };
+
+    // Debounce status updates to prevent rapid successive calls
+    let statusUpdateTimeout = null;
+    
     const updateOfferStatus = async (id, statusKey) => {
-        const updates = {
-            opened: false,
-            deposited: false,
-            received: false,
-        };
-
-        if (statusKey === 'opened') {
-            updates.opened = true;
-        } else if (statusKey === 'deposited') {
-            updates.opened = true;
-            updates.deposited = true;
-        } else if (statusKey === 'received') {
-            updates.opened = true;
-            updates.deposited = true;
-            updates.received = true;
+        // Clear any pending status update
+        if (statusUpdateTimeout) {
+            clearTimeout(statusUpdateTimeout);
         }
+        
+        // Get current status before updating
+        const currentOffer = app.offers[id];
+        const currentStatus = getCurrentStatusKey(currentOffer);
+        
+        // Only animate if status is actually changing
+        if (currentStatus !== statusKey) {
+            // Prevent multiple simultaneous updates
+            if (statusUpdateTimeout) {
+                return;
+            }
+            
+            // Trigger sliding animation
+            const statusDot = document.querySelector('.status-dropdown-trigger .status-dot');
+            const statusLabel = document.querySelector('.status-dropdown-trigger .status-label');
+            
+            if (statusDot && statusLabel) {
+                // Add slide out animation
+                statusDot.classList.add('status-slide-out');
+                statusLabel.classList.add('status-slide-out');
+                
+                // Wait for slide out to complete, then update and slide in
+                statusUpdateTimeout = setTimeout(async () => {
+                    const updates = {
+                        opened: false,
+                        deposited: false,
+                        received: false,
+                    };
 
-        const fetchPromises = Object.entries(updates).map(([field, value]) =>
-            fetch(`${API_URL}/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ field, value })
-            })
-        );
+                    if (statusKey === 'opened') {
+                        updates.opened = true;
+                    } else if (statusKey === 'deposited') {
+                        updates.opened = true;
+                        updates.deposited = true;
+                    } else if (statusKey === 'received') {
+                        updates.opened = true;
+                        updates.deposited = true;
+                        updates.received = true;
+                    }
 
-        try {
-            await Promise.all(fetchPromises);
-            const response = await fetch(`${API_URL}/${id}`);
-            const updatedOffer = await response.json();
-            app.offers[id] = updatedOffer;
-            renderDetailView(updatedOffer);
-        } catch (error) {
-            console.error(`Error updating status:`, error);
+                    try {
+                        // Make sequential API calls to prevent corruption
+                        for (const [field, value] of Object.entries(updates)) {
+                            await fetch(`${API_URL}/${id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ field, value })
+                            });
+                        }
+                        const response = await fetch(`${API_URL}/${id}`);
+                        const updatedOffer = await response.json();
+                        app.offers[id] = updatedOffer;
+                        
+                        // Update the UI with new status
+                        const newStatus = getCurrentStatusKey(updatedOffer);
+                        const statuses = [
+                            { key: 'unopened', label: TEXT_CONTENT.status.unopened, dotColor: '#6b7280' },
+                            { key: 'opened', label: TEXT_CONTENT.status.opened, dotColor: '#f59e0b' },
+                            { key: 'deposited', label: TEXT_CONTENT.status.deposited, dotColor: '#3b82f6' },
+                            { key: 'received', label: TEXT_CONTENT.status.claimed, dotColor: '#22c55e' }
+                        ];
+                        const newStatusData = statuses.find(s => s.key === newStatus);
+                        
+                        if (newStatusData) {
+                            statusDot.style.backgroundColor = newStatusData.dotColor;
+                            statusLabel.textContent = newStatusData.label;
+                            
+                            // Update dropdown options to reflect new current status
+                            document.querySelectorAll('.status-dropdown-option').forEach(option => {
+                                const optionStatus = option.dataset.status;
+                                const isCurrent = optionStatus === newStatus;
+                                
+                                // Update active state
+                                if (isCurrent) {
+                                    option.classList.add('bg-blue-50');
+                                    option.innerHTML = `
+                                        <div class="status-dot mr-3" style="background-color: ${newStatusData.dotColor}"></div>
+                                        <span class="flex-1">${newStatusData.label}</span>
+                                        <svg class="h-4 w-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+                                    `;
+                                } else {
+                                    option.classList.remove('bg-blue-50');
+                                    const statuses = [
+                                        { key: 'unopened', label: TEXT_CONTENT.status.unopened, dotColor: '#6b7280' },
+                                        { key: 'opened', label: TEXT_CONTENT.status.opened, dotColor: '#f59e0b' },
+                                        { key: 'deposited', label: TEXT_CONTENT.status.deposited, dotColor: '#3b82f6' },
+                                        { key: 'received', label: TEXT_CONTENT.status.claimed, dotColor: '#22c55e' }
+                                    ];
+                                    const optionStatusData = statuses.find(s => s.key === optionStatus);
+                                    if (optionStatusData) {
+                                        option.innerHTML = `
+                                            <div class="status-dot mr-3" style="background-color: ${optionStatusData.dotColor}"></div>
+                                            <span class="flex-1">${optionStatusData.label}</span>
+                                        `;
+                                    }
+                                }
+                            });
+                            
+                            // Add slide in animation and pulse
+                            statusDot.classList.remove('status-slide-out');
+                            statusLabel.classList.remove('status-slide-out');
+                            statusDot.classList.add('status-slide-in', 'status-dot-pulse');
+                            statusLabel.classList.add('status-slide-in');
+                            
+                            // Clean up animation classes after completion
+                            setTimeout(() => {
+                                statusDot.classList.remove('status-slide-in', 'status-dot-pulse');
+                                statusLabel.classList.remove('status-slide-in');
+                                // Clear the timeout flag
+                                statusUpdateTimeout = null;
+                            }, 300);
+                        }
+                    } catch (error) {
+                        console.error(`Error updating status:`, error);
+                        // Reset animation classes on error
+                        statusDot.classList.remove('status-slide-out', 'status-slide-in');
+                        statusLabel.classList.remove('status-slide-out', 'status-slide-in');
+                        // Clear the timeout flag
+                        statusUpdateTimeout = null;
+                    }
+                }, 150); // Half of the slide out animation duration
+            }
+        } else {
+            // Status is the same, just update normally without animation
+            const updates = {
+                opened: false,
+                deposited: false,
+                received: false,
+            };
+
+            if (statusKey === 'opened') {
+                updates.opened = true;
+            } else if (statusKey === 'deposited') {
+                updates.opened = true;
+                updates.deposited = true;
+            } else if (statusKey === 'received') {
+                updates.opened = true;
+                updates.deposited = true;
+                updates.received = true;
+            }
+
+            try {
+                // Make sequential API calls to prevent corruption
+                for (const [field, value] of Object.entries(updates)) {
+                    await fetch(`${API_URL}/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ field, value })
+                    });
+                }
+                const response = await fetch(`${API_URL}/${id}`);
+                const updatedOffer = await response.json();
+                app.offers[id] = updatedOffer;
+                renderDetailView(updatedOffer);
+            } catch (error) {
+                console.error(`Error updating status:`, error);
+            }
         }
     };
 
