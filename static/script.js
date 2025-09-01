@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const getExpirationColor = (dateString, offer = null) => {
         // Check if this is an offer that should have greyed out expiration
-        if (offer && (offer.user_controlled.deposited || offer.user_controlled.received)) {
+        if (offer && offer.user_controlled && (offer.user_controlled.deposited || offer.user_controlled.received)) {
             return 'text-gray-400'; // Grey for opened, waiting, or claimed offers
         }
         
@@ -291,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (value === null || value === undefined || String(value).toLowerCase() === 'n/a') {
             // Check if this is a deal_expiration_date field for an opened/waiting/claimed offer
-            if (fieldName === 'deal_expiration_date' && offer && (offer.user_controlled.deposited || offer.user_controlled.received)) {
+            if (fieldName === 'deal_expiration_date' && offer && offer.user_controlled && (offer.user_controlled.deposited || offer.user_controlled.received)) {
                 return '<span class="text-gray-400">N/A</span>';
             }
             return '<span class="text-gray-500">N/A</span>';
@@ -569,9 +569,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const getOfferStatus = (offer) => {
         if (offer.status === 'processing') return { status: 'processing', statusClass: 'status-processing', statusText: TEXT_CONTENT.status.processing };
         if (offer.status === 'failed') return { status: 'failed', statusClass: 'status-failed', statusText: TEXT_CONTENT.status.failed };
-        if (offer.user_controlled.received) return { status: 'claimed', statusClass: 'status-claimed', statusText: TEXT_CONTENT.status.claimed };
-        if (offer.user_controlled.deposited) return { status: 'waiting', statusClass: 'status-waiting', statusText: TEXT_CONTENT.status.waiting };
-        if (offer.user_controlled.opened) return { status: 'pending-deposit', statusClass: 'status-pending-deposit', statusText: TEXT_CONTENT.status.pendingDeposit };
+        
+        // Defensive checks for user_controlled object
+        const userControlled = offer.user_controlled || { opened: false, deposited: false, received: false };
+        
+        if (userControlled.received) return { status: 'claimed', statusClass: 'status-claimed', statusText: TEXT_CONTENT.status.claimed };
+        if (userControlled.deposited) return { status: 'waiting', statusClass: 'status-waiting', statusText: TEXT_CONTENT.status.waiting };
+        if (userControlled.opened) return { status: 'pending-deposit', statusClass: 'status-pending-deposit', statusText: TEXT_CONTENT.status.pendingDeposit };
         return { status: 'unopened', statusClass: 'status-unopened', statusText: TEXT_CONTENT.status.unopened };
     };
 
@@ -664,11 +668,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Calculate totals for all offers
         sortedOffers.forEach(offer => {
-            const bonusAmount = parseFloat(String(offer.details.bonus_to_be_received).replace(/[^0-9.-]+/g,""));
+            const details = offer.details || {};
+            const bonusAmount = parseFloat(String(details.bonus_to_be_received || '0').replace(/[^0-9.-]+/g,""));
             if (!isNaN(bonusAmount)) {
-                if (offer.user_controlled.received) {
+                if (offer.user_controlled && offer.user_controlled.received) {
                     totalClaimed += bonusAmount;
-                } else if (offer.user_controlled.deposited) {
+                } else if (offer.user_controlled && offer.user_controlled.deposited) {
                     totalPending += bonusAmount;
                 }
             }
@@ -694,7 +699,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderOffersGroupedByStatus = (offers) => {
         // Group offers by status
         const groupedOffers = {};
-        const baseStatusOrder = ['unopened', 'pending_deposit', 'waiting', 'processing', 'claimed', 'failed'];
+        const baseStatusOrder = ['unopened', 'pending-deposit', 'waiting', 'processing', 'claimed', 'failed'];
         
         // Apply sort order to status groups - reverse for descending
         const statusOrder = app.isAscending ? baseStatusOrder : [...baseStatusOrder].reverse();
@@ -764,10 +769,13 @@ document.addEventListener('DOMContentLoaded', () => {
         tile.href = `#/offer/${offer.id}`;
         tile.className = 'block bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-300 transition-all duration-200 p-4';
         
-        const bonusAmount = parseFloat(String(offer.details.bonus_to_be_received).replace(/[^0-9.-]+/g,""));
+        // Defensive check for offer.details
+        const details = offer.details || {};
+        
+        const bonusAmount = parseFloat(String(details.bonus_to_be_received || '0').replace(/[^0-9.-]+/g,""));
 
         // Parse tier information for tile view
-        const tiers = parseTierData(offer.details.bonus_tiers_detailed, offer.details.total_deposit_by_tier);
+        const tiers = parseTierData(details.bonus_tiers_detailed, details.total_deposit_by_tier);
         const hasMultipleTiers = tiers && tiers.length > 1;
         const highestBonus = tiers ? Math.max(...tiers.map(t => t.bonus)) : bonusAmount;
 
@@ -776,10 +784,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="flex items-start justify-between mb-3">
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-semibold text-blue-600 truncate" data-field="bank_name">
-                            ${formatValue(offer.details.bank_name, 'text', { skeletonOptions: { width: 'w-24', alignClass: '' }, offerStatus: offer.status, fieldName: 'bank_name' })}
+                            ${formatValue(details.bank_name, 'text', { skeletonOptions: { width: 'w-24', alignClass: '' }, offerStatus: offer.status, fieldName: 'bank_name' })}
                         </p>
                         <h3 class="text-lg font-bold text-gray-900 truncate leading-tight" data-field="account_title">
-                            ${formatValue(offer.details.account_title, 'text', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'account_title' })}
+                            ${formatValue(details.account_title, 'text', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'account_title' })}
                         </h3>
                     </div>
                     <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass} ml-2">
@@ -789,7 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <div class="flex-1 mb-3">
                     <div class="text-2xl font-bold text-green-600 mb-2" data-field="bonus_to_be_received">
-                        ${hasMultipleTiers ? `Up to ${formatValue(highestBonus, 'currency')}` : formatValue(offer.details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-20', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
+                        ${hasMultipleTiers ? `Up to ${formatValue(highestBonus, 'currency')}` : formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-20', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
                     </div>
                     ${hasMultipleTiers ? '<p class="text-xs text-blue-600 mb-2">Multiple tiers available</p>' : ''}
                 </div>
@@ -800,7 +808,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </svg>
                     <span>${TEXT_CONTENT.list.expires}</span>
                     <span class="ml-1" data-field="deal_expiration_date">
-                        ${formatValue(offer.details.deal_expiration_date, 'date', { skeletonOptions: { width: 'w-16', alignClass: '' }, offerStatus: offer.status, fieldName: 'deal_expiration_date', offer: offer })}
+                        ${formatValue(details.deal_expiration_date, 'date', { skeletonOptions: { width: 'w-16', alignClass: '' }, offerStatus: offer.status, fieldName: 'deal_expiration_date', offer: offer })}
                     </span>
                 </div>
             </div>
@@ -817,6 +825,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     const renderDetailView = (offer) => {
+        // Defensive check for offer.details
+        const details = offer.details || {};
+        
         // Handle failed offers first
         if (offer.status === 'failed') {
             app.detailView.innerHTML = `
@@ -1000,9 +1011,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ];
 
             let currentStatusKey = 'unopened';
-            if (offer.user_controlled.received) currentStatusKey = 'received';
-            else if (offer.user_controlled.deposited) currentStatusKey = 'deposited';
-            else if (offer.user_controlled.opened) currentStatusKey = 'opened';
+            if (offer.user_controlled && offer.user_controlled.received) currentStatusKey = 'received';
+            else if (offer.user_controlled && offer.user_controlled.deposited) currentStatusKey = 'deposited';
+            else if (offer.user_controlled && offer.user_controlled.opened) currentStatusKey = 'opened';
 
             let html = '<div class="isolate inline-flex rounded-md shadow-sm w-full">';
             statuses.forEach((status, index) => {
@@ -1023,7 +1034,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         const createConsiderationsList = (offer) => {
-            const data = offer.details.additional_considerations || 'N/A';
+            const data = (offer.details || {}).additional_considerations || 'N/A';
             const contentHtml = createConsiderationsContent(data, offer.status);
 
             return `
@@ -1048,16 +1059,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
         };
 
-        const bonusAmount = parseFloat(String(offer.details.bonus_to_be_received).replace(/[^0-9.-]+/g,""));
-        const feeIsConditional = String(offer.details.fee_is_conditional).toLowerCase() === 'yes';
-        const clawbackStatus = String(offer.details.clawback_clause_present);
+        const bonusAmount = parseFloat(String(details.bonus_to_be_received || '0').replace(/[^0-9.-]+/g,""));
+        const feeIsConditional = String(details.fee_is_conditional || 'No').toLowerCase() === 'yes';
+        const clawbackStatus = String(details.clawback_clause_present || 'No');
         const hasClawback = clawbackStatus.toLowerCase() === 'yes';
-        const clawbackDetails = offer.details.clawback_details;
+        const clawbackDetails = details.clawback_details;
         const clawbackValue = formatValue(clawbackStatus === 'Processing...' ? 'Processing...' : (clawbackStatus.toLowerCase() === 'yes' ? 'Yes' : 'No'), 'text', { offerStatus: offer.status, fieldName: 'clawback_clause_present' });
         const clawbackClass = clawbackStatus === 'Processing...' ? 'text-blue-600' : (clawbackStatus.toLowerCase() === 'yes' ? 'text-red-600' : 'text-green-600');
 
         // Parse tier information
-        const tiers = parseTierData(offer.details.bonus_tiers_detailed, offer.details.total_deposit_by_tier);
+        const tiers = parseTierData(details.bonus_tiers_detailed, details.total_deposit_by_tier);
         const hasMultipleTiers = tiers && tiers.length > 1;
         const highestBonus = tiers ? Math.max(...tiers.map(t => t.bonus)) : bonusAmount;
 
@@ -1069,13 +1080,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 </a>
                 <div class="mt-4 md:flex justify-between items-start">
                     <div class="flex-1">
-                        <h1 class="text-4xl font-bold text-gray-900" data-field="account_title">${formatValue(offer.details.account_title, 'text', { skeletonOptions: { width: 'w-3/4', alignClass: '' }, offerStatus: offer.status, fieldName: 'account_title' })}</h1>
-                        <p class="text-2xl text-gray-600 mt-1" data-field="bank_name">${formatValue(offer.details.bank_name, 'text', { skeletonOptions: { width: 'w-1/2', alignClass: '' }, offerStatus: offer.status, fieldName: 'bank_name' })}</p>
+                        <h1 class="text-4xl font-bold text-gray-900" data-field="account_title">${formatValue(details.account_title, 'text', { skeletonOptions: { width: 'w-3/4', alignClass: '' }, offerStatus: offer.status, fieldName: 'account_title' })}</h1>
+                        <p class="text-2xl text-gray-600 mt-1" data-field="bank_name">${formatValue(details.bank_name, 'text', { skeletonOptions: { width: 'w-1/2', alignClass: '' }, offerStatus: offer.status, fieldName: 'bank_name' })}</p>
                     </div>
                     <div class="text-left md:text-right mt-4 md:mt-0 md:ml-6">
                         <div class="flex flex-col items-end">
                             <p class="text-5xl font-bold text-green-600" data-field="bonus_to_be_received">
-                                ${hasMultipleTiers ? `Up to ${formatValue(highestBonus, 'currency')}` : formatValue(offer.details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
+                                ${hasMultipleTiers ? `Up to ${formatValue(highestBonus, 'currency')}` : formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
                             </p>
                             ${hasMultipleTiers ? '<span class="text-sm text-gray-500 mt-1">Multiple tiers available</span>' : ''}
                         </div>
@@ -1089,16 +1100,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
 
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="metric-tiles-grid">
-                    ${createMetricTile(TEXT_CONTENT.detail.initialDeposit, formatValue(offer.details.initial_deposit_amount, 'currency', { fieldName: 'initial_deposit_amount', offerStatus: offer.status }), { fieldName: 'initial_deposit_amount', offerId: offer.id })}
-                    ${createMetricTile(TEXT_CONTENT.detail.totalDeposit, formatValue(offer.details.total_deposit_required, 'currency', { fieldName: 'total_deposit_required', offerStatus: offer.status }), { fieldName: 'total_deposit_required', offerId: offer.id })}
-                    ${createMetricTile(TEXT_CONTENT.detail.offerExpires, formatValue(offer.details.deal_expiration_date, 'date', { fieldName: 'deal_expiration_date', offerStatus: offer.status, offer: offer }), { fieldName: 'deal_expiration_date', offerId: offer.id })}
-                    ${createMetricTile(TEXT_CONTENT.detail.monthlyFee, formatValue(offer.details.minimum_monthly_fee, 'currency', { fieldName: 'minimum_monthly_fee', offerStatus: offer.status }), { subtitle: feeIsConditional ? TEXT_CONTENT.detail.feeConditional : '', fieldName: 'minimum_monthly_fee', offerId: offer.id })}
-                    ${createMetricTile(TEXT_CONTENT.detail.minBalance, formatValue(offer.details.minimum_daily_balance_required, 'currency', { fieldName: 'minimum_daily_balance_required', offerStatus: offer.status }), { fieldName: 'minimum_daily_balance_required', offerId: offer.id })}
-                    ${createMetricTile(TEXT_CONTENT.detail.depositsRequired, formatValue(offer.details.num_required_deposits, 'text', { fieldName: 'num_required_deposits', offerStatus: offer.status }), { fieldName: 'num_required_deposits', offerId: offer.id })}
-                    ${createMetricTile(TEXT_CONTENT.detail.depositWithin, formatValue(offer.details.days_for_deposit, 'days', { fieldName: 'days_for_deposit', offerStatus: offer.status }), { fieldName: 'days_for_deposit', offerId: offer.id })}
-                    ${createMetricTile(TEXT_CONTENT.detail.bonusPayout, formatValue(offer.details.days_for_bonus, 'days', { fieldName: 'days_for_bonus', offerStatus: offer.status }), { fieldName: 'days_for_bonus', offerId: offer.id })}
+                    ${createMetricTile(TEXT_CONTENT.detail.initialDeposit, formatValue(details.initial_deposit_amount, 'currency', { fieldName: 'initial_deposit_amount', offerStatus: offer.status }), { fieldName: 'initial_deposit_amount', offerId: offer.id })}
+                    ${createMetricTile(TEXT_CONTENT.detail.totalDeposit, formatValue(details.total_deposit_required, 'currency', { fieldName: 'total_deposit_required', offerStatus: offer.status }), { fieldName: 'total_deposit_required', offerId: offer.id })}
+                    ${createMetricTile(TEXT_CONTENT.detail.offerExpires, formatValue(details.deal_expiration_date, 'date', { fieldName: 'deal_expiration_date', offerStatus: offer.status, offer: offer }), { fieldName: 'deal_expiration_date', offerId: offer.id })}
+                    ${createMetricTile(TEXT_CONTENT.detail.monthlyFee, formatValue(details.minimum_monthly_fee, 'currency', { fieldName: 'minimum_monthly_fee', offerStatus: offer.status }), { subtitle: feeIsConditional ? TEXT_CONTENT.detail.feeConditional : '', fieldName: 'minimum_monthly_fee', offerId: offer.id })}
+                    ${createMetricTile(TEXT_CONTENT.detail.minBalance, formatValue(details.minimum_daily_balance_required, 'currency', { fieldName: 'minimum_daily_balance_required', offerStatus: offer.status }), { fieldName: 'minimum_daily_balance_required', offerId: offer.id })}
+                    ${createMetricTile(TEXT_CONTENT.detail.depositsRequired, formatValue(details.num_required_deposits, 'text', { fieldName: 'num_required_deposits', offerStatus: offer.status }), { fieldName: 'num_required_deposits', offerId: offer.id })}
+                    ${createMetricTile(TEXT_CONTENT.detail.depositWithin, formatValue(details.days_for_deposit, 'days', { fieldName: 'days_for_deposit', offerStatus: offer.status }), { fieldName: 'days_for_deposit', offerId: offer.id })}
+                    ${createMetricTile(TEXT_CONTENT.detail.bonusPayout, formatValue(details.days_for_bonus, 'days', { fieldName: 'days_for_bonus', offerStatus: offer.status }), { fieldName: 'days_for_bonus', offerId: offer.id })}
                     ${createMetricTile(TEXT_CONTENT.detail.clawback, clawbackValue, { extraClass: clawbackClass, fieldName: 'clawback_clause_present', offerId: offer.id, hasClawback: hasClawback, clawbackDetails: clawbackDetails })}
-                    ${createMetricTile(TEXT_CONTENT.detail.daysToWithdraw, formatValue(offer.details.must_be_open_for, 'days', { fieldName: 'must_be_open_for', offerStatus: offer.status }), { fieldName: 'must_be_open_for', offerId: offer.id })}
+                    ${createMetricTile(TEXT_CONTENT.detail.daysToWithdraw, formatValue(details.must_be_open_for, 'days', { fieldName: 'must_be_open_for', offerStatus: offer.status }), { fieldName: 'must_be_open_for', offerId: offer.id })}
                 </div>
                 
                 <!-- Hidden tiles indicator -->

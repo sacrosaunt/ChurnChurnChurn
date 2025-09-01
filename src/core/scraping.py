@@ -85,7 +85,7 @@ def scrape_and_process_url(url, offer_id):
             # Fall back to OpenAI
             from src.services.ai_clients import call_ai, openai_model_default
             summary_content = call_ai(summary_prompt, openai_model_default, use_short_tokens=False)
-        print(f"Summary created:\n{summary_content}")
+        # Summary created successfully (content not logged to console)
         
         offers[offer_id]['processing_step'] = "Extracting Details"
         print("Summary created. Starting parallel AI queries from summary.")
@@ -175,7 +175,7 @@ def process_manual_content(content, offer_id):
             # Fall back to OpenAI
             from src.services.ai_clients import call_ai, openai_model_default
             summary_content = call_ai(summary_prompt, openai_model_default, use_short_tokens=False)
-        print(f"Summary created:\n{summary_content}")
+        # Summary created successfully (content not logged to console)
         
         offers[offer_id]['processing_step'] = "Extracting Details"
         print("Summary created. Starting parallel AI queries from summary.")

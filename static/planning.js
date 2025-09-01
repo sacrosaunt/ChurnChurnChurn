@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 date: new Date(timing.account_open_date),
                 type: 'open',
                 offer: offer,
-                description: `Open ${offer.details.bank_name} account`,
+                description: `Open ${(offer.details || {}).bank_name || 'Unknown Bank'} account`,
                 color: 'blue'
             });
             
@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         date: new Date(deposit.date),
                         type: 'deposit',
                         offer: offer,
-                        description: `Make deposit ${deposit.number} (${formatCurrency(deposit.amount)}) to ${offer.details.bank_name}`,
+                        description: `Make deposit ${deposit.number} (${formatCurrency(deposit.amount)}) to ${(offer.details || {}).bank_name || 'Unknown Bank'}`,
                         color: 'yellow'
                     });
                 });
@@ -255,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     date: new Date(timing.deposit_deadline),
                     type: 'deposit',
                     offer: offer,
-                    description: `Make deposit (${formatCurrency(timing.deposit_dates[0].amount)}) to ${offer.details.bank_name}`,
+                    description: `Make deposit (${formatCurrency(timing.deposit_dates[0].amount)}) to ${(offer.details || {}).bank_name || 'Unknown Bank'}`,
                     color: 'yellow'
                 });
             }
@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 date: new Date(timing.bonus_payout_date),
                 type: 'bonus',
                 offer: offer,
-                description: `Bonus payout from ${offer.details.bank_name}`,
+                description: `Bonus payout from ${(offer.details || {}).bank_name || 'Unknown Bank'}`,
                 color: 'green'
             });
             
@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     date: new Date(timing.account_close_date),
                     type: 'close',
                     offer: offer,
-                    description: `Can close ${offer.details.bank_name} account`,
+                    description: `Can close ${(offer.details || {}).bank_name || 'Unknown Bank'} account`,
                     color: 'red'
                 });
             }
@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div class="text-sm font-medium">${event.description}</div>
                                 <div class="text-xs text-gray-500">${formatDate(event.date)}</div>
                             </div>
-                            <div class="text-xs text-gray-400">${event.offer.details.bank_name}</div>
+                            <div class="text-xs text-gray-400">${(event.offer.details || {}).bank_name || 'Unknown Bank'}</div>
                         </div>
                     `).join('')}
                 </div>
@@ -326,6 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Check if any offers were excluded due to expiration
         const allOffers = Object.values(window.app?.offers || {});
         const unopenedOffers = allOffers.filter(offer => 
+            offer.user_controlled &&
             !offer.user_controlled.opened && 
             !offer.user_controlled.deposited && 
             !offer.user_controlled.received &&
@@ -340,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let excludedMessage = '';
         if (excludedOffers.length > 0) {
             const expiredOffers = excludedOffers.filter(offer => {
-                const expirationDate = offer.details.deal_expiration_date;
+                const expirationDate = (offer.details || {}).deal_expiration_date;
                 if (expirationDate && expirationDate !== 'N/A') {
                     try {
                         const expiration = new Date(expirationDate);
@@ -432,9 +433,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="bg-red-50 p-4 rounded-lg">
                         <p class="text-sm font-medium text-red-800">Total Deposit Required</p>
                         <p class="text-2xl font-bold text-red-600">${formatCurrency(offers.reduce((total, offer) => {
-                            const initialDeposit = parseFloat(String(offer.details.initial_deposit_amount).replace(/[^0-9.-]+/g,"")) || 0;
-                            const minDeposit = parseFloat(String(offer.details.minimum_deposit_amount).replace(/[^0-9.-]+/g,"")) || 0;
-                            const depositsRequired = parseInt(String(offer.details.num_required_deposits).replace(/[^0-9]+/g,"")) || 1;
+                            const details = offer.details || {};
+                            const initialDeposit = parseFloat(String(details.initial_deposit_amount || '0').replace(/[^0-9.-]+/g,"")) || 0;
+                            const minDeposit = parseFloat(String(details.minimum_deposit_amount || '0').replace(/[^0-9.-]+/g,"")) || 0;
+                            const depositsRequired = parseInt(String(details.num_required_deposits || '1').replace(/[^0-9]+/g,"")) || 1;
                             const totalDepositRequired = minDeposit * depositsRequired;
                             return total + initialDeposit + totalDepositRequired;
                         }, 0))}</p>

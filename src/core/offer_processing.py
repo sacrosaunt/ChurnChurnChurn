@@ -1,5 +1,6 @@
 import threading
 import time
+import sys
 from urllib.parse import urlparse
 from src.utils.utils import normalize_url_for_comparison
 from src.data.data_manager import offers, save_offer
@@ -51,9 +52,28 @@ def check_duplicate_offer(url):
 
 def extract_offer_details_with_ai(summary_content, raw_text, offer_id):
     """Sends parallel AI queries to extract offer details from a summary."""
+    # Progress tracking
+    total_queries = len(FIELD_EXTRACTION_TASKS)
+    completed_queries = 0
+    progress_lock = threading.Lock()
+    
+    def update_progress(param_name=None, result=None):
+        """Updates the progress display on the same line."""
+        nonlocal completed_queries
+        with progress_lock:
+            if param_name and result:
+                completed_queries += 1
+                # Update the current line with progress
+                progress_text = f"🚀 AI Queries Progress: {completed_queries}/{total_queries} completed"
+                if completed_queries < total_queries:
+                    sys.stdout.write(f"\r{progress_text}")
+                    sys.stdout.flush()
+                else:
+                    sys.stdout.write(f"\r{progress_text} ✅\n")
+                    sys.stdout.flush()
+    
     def extract_detail(param_name, prompt):
         """Runs a single AI query in a thread using the flash model against the summary."""
-        print(f"🚀 Starting AI query for: {param_name}")
         full_prompt = f"""
         Based on the summarized text below, answer the following question.
         Provide only the answer, without any extra explanation.
@@ -76,7 +96,13 @@ def extract_offer_details_with_ai(summary_content, raw_text, offer_id):
              offers[offer_id]['details'][param_name] = result
              # Save the updated offer to storage
              save_offer(offer_id)
-        print(f"✅ Finished AI query for: {param_name} -> {result}")
+        
+        # Update progress
+        update_progress(param_name, result)
+
+    # Show initial progress
+    print(f"🚀 AI Queries Progress: 0/{total_queries} completed", end="")
+    sys.stdout.flush()
 
     threads = []
     for task in FIELD_EXTRACTION_TASKS:
@@ -141,7 +167,7 @@ This information is crucial because many bank offers are restricted to "new cust
         --- RAW WEBSITE TEXT END ---
         """
         
-        print("🚀 Starting AI query for: additional_considerations (ChatGPT/Gemini context)")
+        print("🔍 Analyzing fine print for additional considerations...")
         model_for_considerations = openai_model_default if openai_model_default else flash_model
         result = call_ai(considerations_prompt, model_for_considerations, use_short_tokens=False)
         
@@ -151,7 +177,7 @@ This information is crucial because many bank offers are restricted to "new cust
             print("⚠️ Additional considerations returned empty, setting to N/A")
             
         offers[offer_id]['details']['additional_considerations'] = result
-        print(f"✅ Finished AI query for: additional_considerations -> '{result}'")
+        print(f"✅ Fine print analysis complete")
 
     if offer_id in offers:
         offers[offer_id]['processing_step'] = "Done"
