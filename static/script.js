@@ -1232,7 +1232,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     
                     if (!response.ok) {
-                        throw new Error('Refresh failed');
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || `Refresh failed (HTTP ${response.status})`);
                     }
                     
                     // Poll for updates with progress tracking
@@ -1369,6 +1370,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     progressDiv.classList.add('hidden');
                     refreshButton.style.display = 'block';
                     refreshButton.style.opacity = '0';
+                    
+                    // Show error message to user
+                    alert(`Failed to refresh field: ${error.message}`);
                 }
             });
         });
@@ -1416,7 +1420,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     
                     if (!response.ok) {
-                        throw new Error('Refresh failed');
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || `Refresh failed (HTTP ${response.status})`);
                     }
                     
                     // Poll for updates with progress tracking
@@ -1553,6 +1558,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     progressDiv.classList.add('hidden');
                     refreshButton.style.display = 'block';
                     refreshButton.style.opacity = '0';
+                    
+                    // Show error message to user
+                    alert(`Failed to refresh field: ${error.message}`);
                 }
             });
         });

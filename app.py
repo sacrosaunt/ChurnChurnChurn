@@ -247,9 +247,11 @@ def refresh_offer_field(offer_id):
     if offer_id not in offers:
         return jsonify({'error': 'Offer not found'}), 404
     
-    # Check if at least OpenAI is available for refresh operations
-    if not OPENAI_ENABLED:
-        return jsonify({'error': 'OpenAI client not configured. Check server logs.'}), 500
+    # Check if at least one AI client is available for refresh operations
+    # Import current values to avoid stale imports
+    from src.services.ai_clients import OPENAI_ENABLED, flash_model, pro_model
+    if not OPENAI_ENABLED and not flash_model and not pro_model:
+        return jsonify({'error': 'No AI clients configured. Please configure OpenAI or Gemini API keys.'}), 500
     
     data = request.get_json()
     field_name = data.get('field')
