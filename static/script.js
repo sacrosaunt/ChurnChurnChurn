@@ -931,7 +931,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                     </svg>
-                    <div class="clawback-tooltip absolute left-0 top-8 bg-gray-900 text-white text-xs rounded py-2 px-3 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                    <div class="clawback-tooltip absolute left-0 top-8 bg-gray-900 text-white text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
                         <div class="font-semibold mb-1">⚠️ Clawback Clause</div>
                         <div class="text-gray-300">${clawbackDetails && clawbackDetails !== 'N/A' && clawbackDetails !== 'Processing...' ? clawbackDetails : clawbackDetails === 'Processing...' ? 'Processing clawback details...' : 'The bank can take back the bonus if you close the account early or don\'t meet requirements.'}</div>
                         <div class="absolute top-0 left-4 transform -translate-y-1 w-2 h-2 bg-gray-900 rotate-45"></div>
@@ -1042,7 +1042,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const bonusAmount = parseFloat(String(offer.details.bonus_to_be_received).replace(/[^0-9.-]+/g,""));
         const feeIsConditional = String(offer.details.fee_is_conditional).toLowerCase() === 'yes';
         const clawbackStatus = String(offer.details.clawback_clause_present);
-        const hasClawback = clawbackStatus.toLowerCase() === 'yes' || clawbackStatus === 'Processing...';
+        const hasClawback = clawbackStatus.toLowerCase() === 'yes';
         const clawbackDetails = offer.details.clawback_details;
         const clawbackValue = formatValue(clawbackStatus === 'Processing...' ? 'Processing...' : (clawbackStatus.toLowerCase() === 'yes' ? 'Yes' : 'No'), 'text', { offerStatus: offer.status, fieldName: 'clawback_clause_present' });
         const clawbackClass = clawbackStatus === 'Processing...' ? 'text-blue-600' : (clawbackStatus.toLowerCase() === 'yes' ? 'text-red-600' : 'text-green-600');
