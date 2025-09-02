@@ -91,7 +91,7 @@ def initialize_ai_clients():
     logger.info(f"   Gemini Pro: {'✅ Available' if pro_model else '❌ Not Available'}")
     logger.info(f"   OpenAI Client: {'✅ Created' if client else '❌ Not Created'}")
 
-def call_gemini(prompt, model_instance, use_short_tokens=False):
+def call_gemini(prompt, model_instance, use_short_tokens=False, temperature=0):
     """Generic function to call a specific Gemini API model and return the text response."""
     if not model_instance:
         return "AI Model Not Configured"
@@ -104,7 +104,7 @@ def call_gemini(prompt, model_instance, use_short_tokens=False):
         try:
             # Create a temporary model instance with the appropriate token limit
             temp_config = {
-                "temperature": 0,
+                "temperature": temperature,
                 "top_p": 1,
                 "top_k": 1,
                 "max_output_tokens": token_limit,
@@ -158,7 +158,7 @@ def call_gemini(prompt, model_instance, use_short_tokens=False):
 
 # --- Unified AI Call Helper ---
 
-def call_ai(prompt, model, use_short_tokens=False):
+def call_ai(prompt, model, use_short_tokens=False, temperature=0):
     """Generic AI call supporting both Gemini model instances and OpenAI ChatGPT model names (string)."""
     # If model is a string -> assume OpenAI ChatCompletion
     if isinstance(model, str):
@@ -171,7 +171,8 @@ def call_ai(prompt, model, use_short_tokens=False):
             response = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=token_limit)
+            max_tokens=token_limit,
+            temperature=temperature)
             if response.choices and response.choices[0].message:
                 logger.info(f"OpenAI API call successful using model: {model}")
                 return response.choices[0].message.content.strip()

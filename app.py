@@ -360,7 +360,7 @@ This information is crucial because many bank offers are restricted to "new cust
                 # Try to use pro_model if available, otherwise fall back to OpenAI
                 model_to_use = pro_model if pro_model else openai_model_default
                 use_long_tokens = False
-            result = call_ai(query_prompt, model_to_use, use_short_tokens=not use_long_tokens)
+            result = call_ai(query_prompt, model_to_use, use_short_tokens=not use_long_tokens, temperature=0.5)
             return result.strip()
         
         # Run queries in parallel
