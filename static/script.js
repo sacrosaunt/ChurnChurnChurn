@@ -2611,7 +2611,7 @@ Tips:
             return;
         }
 
-        if (confirm('This will re-process the entire offer from scratch. This may take a few minutes. Continue?')) {
+        if (confirm('This will re-process the entire offer from scratch. This may take a minute. Continue?')) {
             try {
                 
                 // Show processing state and reset all fields to skeletons

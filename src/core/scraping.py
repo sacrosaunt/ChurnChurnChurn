@@ -59,7 +59,7 @@ def scrape_and_process_url(url, offer_id):
         Condense the following bank offer text into a verbose bulleted list of all key terms, conditions, numbers, and dates. 
 
         IMPORTANT: Prioritize and include information relevant to these specific fields that will be extracted:
-        - Bank name and account title
+        - Bank name and account title (keep concise, avoid lengthy descriptions)
         - Cash bonus amounts (including multiple tiers if present)
         - Minimum qualifying deposit amounts for each tier
         - Number of required deposits (including direct deposits)
@@ -149,7 +149,7 @@ def process_manual_content(content, offer_id):
         Condense the following bank offer text into a verbose bulleted list of all key terms, conditions, numbers, and dates. 
 
         IMPORTANT: Prioritize and include information relevant to these specific fields that will be extracted:
-        - Bank name and account title
+        - Bank name and account title (keep concise, avoid lengthy descriptions)
         - Cash bonus amounts (including multiple tiers if present)
         - Minimum qualifying deposit amounts for each tier
         - Number of required deposits (including direct deposits)
