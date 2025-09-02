@@ -104,11 +104,6 @@ def handle_offers():
             from src.services.ai_clients import flash_model, pro_model, OPENAI_ENABLED
             # Check if we have any AI models available
             has_ai_models = bool(flash_model or pro_model or OPENAI_ENABLED)
-            print(f"🔍 AI Model Validation Debug:")
-            print(f"   flash_model: {flash_model}")
-            print(f"   pro_model: {pro_model}")
-            print(f"   OPENAI_ENABLED: {OPENAI_ENABLED}")
-            print(f"   has_ai_models: {has_ai_models}")
             if not has_ai_models:
                 return jsonify({'error': 'AI models not configured. Check server logs.'}), 500
 
@@ -202,23 +197,17 @@ def handle_offers():
             'details': {field['param_name']: 'Processing...' for field in FIELD_EXTRACTION_TASKS + [{"param_name": "additional_considerations"}]}
         }
         
-        print(f"🔍 Offer created with status: {offers[offer_id]['status']}")
-        print(f"🔍 Processing step: {offers[offer_id]['processing_step']}")
-        
         # Store the original content for manual mode offers
         if not url:
             offers[offer_id]['original_content'] = content
-            print(f"🔍 Stored original content for manual mode offer")
         
         # Save the new offer to storage
         save_offer(offer_id)
         
         # Start processing thread
         if url:
-            print(f"🔍 Starting URL processing thread")
             thread = threading.Thread(target=scrape_and_process_url, args=(url, offer_id))
         else:
-            print(f"🔍 Starting manual content processing thread")
             thread = threading.Thread(target=process_manual_content, args=(content, offer_id))
         thread.start()
         
@@ -259,7 +248,6 @@ def clear_refresh_status(offer_id, field_name):
     """Helper function to clear refresh status for a field."""
     if 'refresh_status' in offers[offer_id] and field_name in offers[offer_id]['refresh_status']:
         del offers[offer_id]['refresh_status'][field_name]
-        print(f"🧹 Cleared refresh status for field '{field_name}' in offer {offer_id}")
 
 
 def refresh_field_value(offer_id, field_name):
@@ -267,7 +255,6 @@ def refresh_field_value(offer_id, field_name):
     global offers
     
     try:
-        print(f"🔄 Starting refresh for field '{field_name}' in offer {offer_id}")
         # Set a flag to indicate refresh is in progress without changing the actual value
         if 'refresh_status' not in offers[offer_id]:
             offers[offer_id]['refresh_status'] = {}
@@ -275,10 +262,8 @@ def refresh_field_value(offer_id, field_name):
         
         # Check if this is a manual mode offer (has stored content)
         if 'original_content' in offers[offer_id]:
-            print(f"📄 Stage 1: Using stored content for manual mode offer {offer_id}")
             page_text = offers[offer_id]['original_content']
         else:
-            print(f"📄 Stage 1: Rescraping website for offer {offer_id}")
             # Rescrape the website
             url = offers[offer_id]['url']
             session = requests.Session()
@@ -311,7 +296,7 @@ def refresh_field_value(offer_id, field_name):
             clear_refresh_status(offer_id, field_name)
             return
         
-        print(f"✅ Stage 1 Complete: Successfully processed {len(page_text)} characters for offer {offer_id}")
+
         
         # Brief pause to ensure status is visible
         time.sleep(0.3)
@@ -364,11 +349,9 @@ This information is crucial because many bank offers are restricted to "new cust
         
         # Send 3 parallel queries
         offers[offer_id]['refresh_status'][field_name] = 'querying'
-        print(f"🤖 Stage 2: Sending 3 AI queries for field '{field_name}' in offer {offer_id}")
         start_query_time = time.time()
         
         def query_ai(query_num):
-            print(f"  Query {query_num}/3: Asking AI about '{field_name}'...")
             # Use OpenAI as fallback when Gemini models are not available
             if field_name == "additional_considerations":
                 model_to_use = openai_model_default
@@ -378,7 +361,6 @@ This information is crucial because many bank offers are restricted to "new cust
                 model_to_use = pro_model if pro_model else openai_model_default
                 use_long_tokens = False
             result = call_ai(query_prompt, model_to_use, use_short_tokens=not use_long_tokens)
-            print(f"  Query {query_num}/3 Response: '{result.strip()}'")
             return result.strip()
         
         # Run queries in parallel
@@ -397,15 +379,12 @@ This information is crucial because many bank offers are restricted to "new cust
             thread.join()
         
         query_duration = time.time() - start_query_time
-        print(f"✅ Stage 2 Complete: Received 3 responses for field '{field_name}' in {query_duration:.1f}s")
         
         # Brief pause to ensure status is visible
         time.sleep(0.3)
         
         # Send consensus query
         offers[offer_id]['refresh_status'][field_name] = 'consensus'
-        print(f"🧠 Stage 3: Sending consensus query for field '{field_name}' in offer {offer_id}")
-        print(f"  Consensus input: {results}")
         start_consensus_time = time.time()
         # Determine if this field expects a numeric value
         numeric_fields = [
@@ -559,7 +538,6 @@ This information is crucial because many bank offers are restricted to "new cust
                         print(f"  ✅ Final extraction successful: '{cleaned_result}'")
                     else:
                         cleaned_result = '0'
-                        print(f"  ❌ Extraction failed, defaulting to '0'")
             
             offers[offer_id]['details'][field_name] = cleaned_result
         else:
@@ -591,7 +569,6 @@ This information is crucial because many bank offers are restricted to "new cust
         
         # Save the updated offer to storage
         save_offer(offer_id)
-        print(f"✅ Stage 3 Complete: Final result for '{field_name}': '{offers[offer_id]['details'][field_name]}' in {consensus_duration:.1f}s")
         
         # Keep status visible for a moment before clearing
         time.sleep(1.5)
@@ -599,14 +576,11 @@ This information is crucial because many bank offers are restricted to "new cust
         # Clear refresh status
         clear_refresh_status(offer_id, field_name)
         
-        print(f"🎉 Refresh Complete: Field '{field_name}' in offer {offer_id} updated successfully")
-        
     except Exception as e:
         print(f"❌ Error refreshing field {field_name} for offer {offer_id}: {e}")
         offers[offer_id]['details'][field_name] = 'Refresh Failed'
         # Save the failed offer to storage
         save_offer(offer_id)
-        print(f"💥 Refresh Failed: Field '{field_name}' in offer {offer_id} set to 'Refresh Failed'")
         
         # Clear refresh status on error
         if 'refresh_status' in offers[offer_id] and field_name in offers[offer_id]['refresh_status']:

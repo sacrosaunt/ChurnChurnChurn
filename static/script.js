@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
             addOfferTitle: 'Add New Offer',
             urlInputPlaceholder: 'Paste a bank offer URL here...',
             submitButtonText: 'Add Offer',
+            manualSubmitButtonText: 'Process Content',
 
             noOffersMessage: 'No offers have been added yet. Paste a URL above to get started.',
         },
@@ -63,11 +64,12 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         errors: {
             scrapingFailedTitle: 'Scraping Failed',
-            scrapingFailedMessage: 'The application was unable to retrieve information from this URL. The website may be down or is actively blocking automated scrapers. You can try visiting the source URL directly.',
+            scrapingFailedMessage: 'The application was unable to retrieve information from this URL. The website may be down or is actively blocking automated scrapers.',
 
         },
         // For processing progress bar
         processingSteps: ["Scraping Website", "Validating Offer", "Condensing Terms", "Extracting Details", "Analyzing Fine Print", "Done"],
+        manualProcessingSteps: ["Validating Content", "Condensing Terms", "Extracting Details", "Analyzing Fine Print", "Done"],
 
 
     };
@@ -121,10 +123,21 @@ document.addEventListener('DOMContentLoaded', () => {
         sortOrderBtn: document.getElementById('sort-order-btn'),
         sortOrderText: document.getElementById('sort-order-text'),
         sortOrderIcon: document.getElementById('sort-order-icon'),
+        // Manual Mode Elements
+        urlModeBtn: document.getElementById('url-mode-btn'),
+        manualModeBtn: document.getElementById('manual-mode-btn'),
+        urlInputContainer: document.getElementById('url-input-container'),
+        manualInputContainer: document.getElementById('manual-input-container'),
+        manualContent: document.getElementById('manual-content'),
+        manualSubmitButton: document.getElementById('manual-submit-button'),
+        manualSubmitButtonText: document.getElementById('manual-submit-button-text'),
+        manualSubmitSpinner: document.getElementById('manual-submit-spinner'),
+        charCount: document.getElementById('char-count'),
         // State
         offers: {},
         currentFilter: 'status',
         isAscending: false,
+        currentMode: 'url', // 'url' or 'manual'
     };
 
     // --- INITIALIZE STATIC TEXT ---
@@ -137,6 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('add-offer-title').textContent = TEXT_CONTENT.app.addOfferTitle;
         app.urlInput.placeholder = TEXT_CONTENT.app.urlInputPlaceholder;
         app.submitButtonText.textContent = TEXT_CONTENT.app.submitButtonText;
+        app.manualSubmitButtonText.textContent = TEXT_CONTENT.app.manualSubmitButtonText;
         document.getElementById('no-offers-text').textContent = TEXT_CONTENT.app.noOffersMessage;
         app.filterLabel.textContent = TEXT_CONTENT.list.orderBy;
         document.getElementById('filter-all').textContent = TEXT_CONTENT.list.orderOptions.all;
@@ -368,7 +382,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const parseTierData = (bonusTiersDetailed, totalDepositByTier) => {
-        if (!bonusTiersDetailed || bonusTiersDetailed === 'Single tier' || bonusTiersDetailed === 'N/A') {
+        if (!bonusTiersDetailed || bonusTiersDetailed === 'Single tier' || bonusTiersDetailed === 'N/A' || 
+            String(bonusTiersDetailed).toLowerCase().includes('processing')) {
             return null;
         }
 
@@ -396,7 +411,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const tiers = JSON.parse(cleanedJson);
             // Clean totalDepositByTier data too
             let cleanedDeposits = totalDepositByTier;
-            if (cleanedDeposits && cleanedDeposits !== 'Single tier' && typeof cleanedDeposits === 'string') {
+            if (cleanedDeposits && cleanedDeposits !== 'Single tier' && 
+                !String(cleanedDeposits).toLowerCase().includes('processing') && 
+                typeof cleanedDeposits === 'string') {
                 cleanedDeposits = cleanedDeposits.replace(/^json\s*\n?/i, '').trim();
                 cleanedDeposits = cleanedDeposits.replace(/'/g, '"');
             }
@@ -621,6 +638,13 @@ document.addEventListener('DOMContentLoaded', () => {
         app.submitSpinner.classList.toggle('hidden', !isLoading);
     };
 
+    const setManualLoadingState = (isLoading) => {
+        app.manualSubmitButton.disabled = isLoading;
+        app.manualContent.disabled = isLoading;
+        app.manualSubmitButtonText.classList.toggle('hidden', isLoading);
+        app.manualSubmitSpinner.classList.toggle('hidden', !isLoading);
+    };
+
 
 
     const getOfferStatus = (offer) => {
@@ -698,6 +722,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateSortOrderButton = () => {
         app.sortOrderText.textContent = app.isAscending ? TEXT_CONTENT.list.ascending : TEXT_CONTENT.list.descending;
         app.sortOrderIcon.style.transform = app.isAscending ? 'rotate(180deg)' : 'rotate(0deg)';
+    };
+
+    const switchMode = (mode) => {
+        app.currentMode = mode;
+        
+        if (mode === 'url') {
+            app.urlModeBtn.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+            app.urlModeBtn.classList.remove('text-gray-600');
+            app.manualModeBtn.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
+            app.manualModeBtn.classList.add('text-gray-600');
+            
+            app.urlInputContainer.classList.remove('hidden');
+            app.manualInputContainer.classList.add('hidden');
+            app.urlInput.required = true;
+            app.manualContent.required = false;
+            
+            // Focus on URL input
+            setTimeout(() => app.urlInput.focus(), 100);
+        } else {
+            app.manualModeBtn.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+            app.manualModeBtn.classList.remove('text-gray-600');
+            app.urlModeBtn.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
+            app.urlModeBtn.classList.add('text-gray-600');
+            
+            app.urlInputContainer.classList.add('hidden');
+            app.manualInputContainer.classList.remove('hidden');
+            app.urlInput.required = false;
+            app.manualContent.required = true;
+            
+            // Focus on manual content textarea
+            setTimeout(() => app.manualContent.focus(), 100);
+        }
+    };
+
+    const updateCharCount = () => {
+        const count = app.manualContent.value.length;
+        app.charCount.textContent = count.toLocaleString();
     };
 
     const renderOfferList = () => {
@@ -907,30 +968,76 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${TEXT_CONTENT.detail.backLink}
                     </a>
                 </header>
-                <div class="bg-red-50 border-l-4 border-red-400 p-6 rounded-r-lg shadow-md my-8">
-                    <div class="flex">
-                        <div class="py-1">
-                            <svg class="w-8 h-8 text-red-500 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <div class="bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 rounded-xl shadow-lg my-8 overflow-hidden">
+                    <!-- Header with icon -->
+                    <div class="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4">
+                        <div class="flex items-center">
+                            <div class="bg-white/20 rounded-full p-2 mr-3">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-white">${TEXT_CONTENT.errors.scrapingFailedTitle}</h3>
+                                <p class="text-red-100 text-sm">We couldn't automatically extract the offer details</p>
+                            </div>
                         </div>
-                        <div>
-                            <p class="text-xl font-bold text-red-800">${TEXT_CONTENT.errors.scrapingFailedTitle}</p>
-                            <p class="text-red-700 mt-2">${TEXT_CONTENT.errors.scrapingFailedMessage}</p>
-                            <p class="text-sm text-gray-600 mt-4">
-                                <a href="${offer.url}" target="_blank" class="text-blue-500 hover:underline flex items-center gap-1" title="${offer.url}">
-                                    ${TEXT_CONTENT.detail.sourceLink}
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    </div>
+                    
+                    <!-- Content area -->
+                    <div class="p-6">
+                        <div class="mb-6">
+                            <p class="text-gray-700 leading-relaxed">${TEXT_CONTENT.errors.scrapingFailedMessage}</p>
+                            
+                            <!-- Source link -->
+                            <div class="mt-4 inline-flex items-center">
+                                <a href="${offer.url}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors duration-200 text-sm font-medium" title="${offer.url}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
                                     </svg>
+                                    ${TEXT_CONTENT.detail.sourceLink}
                                 </a>
-                            </p>
-                            <div class="mt-4 p-4 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg">
-                                <div class="mt-3">
-                                    <textarea id="failed-scrape-content" rows="6" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-vertical" placeholder="Paste the website content, HTML, or text here..."></textarea>
-                                    <div class="flex justify-end mt-2">
-                                        <button id="submit-failed-content-btn" class="bg-blue-600 text-white text-sm px-4 py-2 rounded-md hover:bg-blue-700 transition">
-                                            Process Content
-                                        </button>
-                                    </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Manual input section -->
+                        <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+                            <div class="flex items-center mb-4">
+                                <div class="bg-blue-100 rounded-full p-2 mr-3">
+                                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 class="text-lg font-semibold text-gray-800">Manual Content Entry</h4>
+                                    <p class="text-sm text-gray-600">Please paste the website content below to process manually</p>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-4">
+                                <div class="relative">
+                                    <textarea 
+                                        id="failed-scrape-content" 
+                                        rows="8" 
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-none font-mono text-sm bg-white shadow-sm" 
+                                        placeholder="Paste the website content, HTML, or text here...
+
+Tips:
+• Copy the entire page content (Ctrl+A, Ctrl+C)
+• Include terms, conditions, and bonus details
+• You can paste HTML or plain text"
+                                        autofocus
+                                    ></textarea>
+
+                                </div>
+                                
+                                <div class="flex justify-end">
+                                    <button 
+                                        id="submit-failed-content-btn" 
+                                        class="bg-green-600 text-white font-semibold px-6 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200"
+                                    >
+                                        Process Content
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -951,13 +1058,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (app.previousPage === 'planning') {
                         window.location.href = '/planning';
                     } else {
+                        // Delete the failed offer when navigating back to dashboard
+                        try {
+                            await fetch(`${API_URL}/${offer.id}`, { method: 'DELETE' });
+                            delete app.offers[offer.id];
+                        } catch (error) {
+                            console.error('Error deleting failed offer:', error);
+                        }
 
                         // Refresh offers before navigating back to dashboard
                         await fetchAllOffers();
                         window.location.hash = '';
                         // Force a re-render of the dashboard to show updated data
                         setTimeout(() => {
-
                             handleRouteChange();
                         }, 10);
                     }
@@ -1138,8 +1251,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const createStatusSelector = (offer, initialProgressBarWidth) => {
             if (offer.status === 'processing') {
-                const steps = TEXT_CONTENT.processingSteps;
+                // Determine if this is a manual mode offer
+                const isManualMode = offer.url && offer.url.startsWith('manual-content-');
+                const steps = isManualMode ? TEXT_CONTENT.manualProcessingSteps : TEXT_CONTENT.processingSteps;
+                
+
+
                 let currentStepIndex = steps.indexOf(offer.processing_step);
+                
+                // If exact match not found, try to find partial match
+                if (currentStepIndex === -1) {
+                    currentStepIndex = steps.findIndex(step => 
+                        offer.processing_step && offer.processing_step.toLowerCase().startsWith(step.toLowerCase())
+                    );
+                }
+                
+                // If still not found, try case-insensitive exact match
+                if (currentStepIndex === -1) {
+                    currentStepIndex = steps.findIndex(step => 
+                        offer.processing_step && offer.processing_step.toLowerCase() === step.toLowerCase()
+                    );
+                }
+                
+                // Special handling for backend/frontend step name mismatch
+                if (currentStepIndex === -1 && offer.processing_step === "Validating Content" && !isManualMode) {
+                    // Backend is sending "Validating Content" for URL mode, map it to "Validating Offer"
+                    currentStepIndex = steps.indexOf("Validating Offer");
+                }
+                
+                // If still not found, handle error states or default to 0
                 if (currentStepIndex === -1) {
                     // Handle error states that aren't in the normal flow
                     if (offer.processing_step === "Validation Failed" || 
@@ -1154,6 +1294,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Ensure "Done" step shows 100% progress
                 const progressPercentage = offer.processing_step === "Done" ? 100 : ((currentStepIndex + 1) / steps.length) * 100;
+                
+
                 
                 return `
                     <h3 class="text-lg font-semibold mb-2 text-center">${TEXT_CONTENT.detail.processingTitle}</h3>
@@ -2119,8 +2261,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (newOffer.status === 'processing' && oldOffer.status === 'processing') {
                         const progressBar = document.getElementById('processing-progress-bar');
                         if (progressBar) {
-                                                    const steps = TEXT_CONTENT.processingSteps;
+                            // Determine if this is a manual mode offer
+                            const isManualMode = newOffer.url && newOffer.url.startsWith('manual-content-');
+                            const steps = isManualMode ? TEXT_CONTENT.manualProcessingSteps : TEXT_CONTENT.processingSteps;
+                            
+
+
                             let currentStepIndex = steps.indexOf(newOffer.processing_step);
+                            
+                            // If exact match not found, try to find partial match
+                            if (currentStepIndex === -1) {
+                                currentStepIndex = steps.findIndex(step => 
+                                    newOffer.processing_step && newOffer.processing_step.toLowerCase().startsWith(step.toLowerCase())
+                                );
+                            }
+                            
+                            // If still not found, try case-insensitive exact match
+                            if (currentStepIndex === -1) {
+                                currentStepIndex = steps.findIndex(step => 
+                                    newOffer.processing_step && newOffer.processing_step.toLowerCase() === step.toLowerCase()
+                                );
+                            }
+                            
+                            // Special handling for backend/frontend step name mismatch
+                            if (currentStepIndex === -1 && newOffer.processing_step === "Validating Content" && !isManualMode) {
+                                // Backend is sending "Validating Content" for URL mode, map it to "Validating Offer"
+                                currentStepIndex = steps.indexOf("Validating Offer");
+                            }
+                            
+                            // If still not found, handle error states or default to 0
                             if (currentStepIndex === -1) {
                                 // Handle error states that aren't in the normal flow
                                 if (newOffer.processing_step === "Validation Failed" || 
@@ -2133,6 +2302,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             }
                             const progressPercentage = newOffer.processing_step === "Done" ? 100 : ((currentStepIndex + 1) / steps.length) * 100;
+                            
+
+                            
                             progressBar.style.width = `${progressPercentage}%`;
                             
                             // Update the step text
@@ -2627,9 +2799,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const submitManualContent = async (content) => {
+        if (app.manualSubmitButton.disabled) return;
+        setManualLoadingState(true);
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                alert(errorData.error || 'An unknown error occurred while processing the content.');
+                return;
+            }
+
+            const newOffer = await response.json();
+            app.offers[newOffer.id] = newOffer;
+            app.manualContent.value = '';
+            updateCharCount();
+            handleRouteChange();
+            // Start polling immediately if the new offer is processing
+            if (newOffer.status === 'processing') {
+                scheduleNextFetch();
+            }
+            // Go directly to the new offer's detail page
+            window.location.hash = `#/offer/${newOffer.id}`;
+
+        } catch (error) {
+            console.error('Error processing manual content:', error);
+            alert('A network error occurred. Please check your connection and try again.');
+        } finally {
+            setManualLoadingState(false);
+        }
+    };
+
     app.form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        submitUrl(app.urlInput.value.trim());
+        
+        if (app.currentMode === 'url') {
+            submitUrl(app.urlInput.value.trim());
+        } else {
+            submitManualContent(app.manualContent.value.trim());
+        }
     });
 
     app.urlInput.addEventListener('paste', (e) => {
@@ -2651,6 +2864,13 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSortOrderButton();
         renderOfferList();
     });
+
+    // Mode toggle functionality
+    app.urlModeBtn.addEventListener('click', () => switchMode('url'));
+    app.manualModeBtn.addEventListener('click', () => switchMode('manual'));
+    
+    // Manual content character count
+    app.manualContent.addEventListener('input', updateCharCount);
 
 
 

@@ -35,19 +35,80 @@
             </div>
 
             <div class="bg-white p-6 rounded-lg shadow-md mb-8">
-                <h2 id="add-offer-title" class="text-xl font-semibold mb-4"></h2> 
+                <div class="flex items-center justify-between mb-4">
+                    <h2 id="add-offer-title" class="text-xl font-semibold"></h2>
+                    
+                    <!-- Mode Toggle -->
+                    <div class="flex items-center bg-gray-100 rounded-lg p-1">
+                        <button type="button" id="url-mode-btn" class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 bg-white text-gray-900 shadow-sm">
+                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                            </svg>
+                            URL Mode
+                        </button>
+                        <button type="button" id="manual-mode-btn" class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 text-gray-600 hover:text-gray-900">
+                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Manual Mode
+                        </button>
+                    </div>
+                </div>
                 
                 <form id="add-offer-form">
                     <!-- URL Input -->
-                    <div id="url-input-container" class="flex flex-col sm:flex-row gap-4">
-                        <input type="url" id="url-input" required class="flex-grow w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="Paste a bank offer URL here..."> 
-                        <button type="submit" id="submit-button" class="bg-blue-600 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 flex-shrink-0">
-                            <span id="submit-button-text"></span> 
-                            <svg id="submit-spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        </button>
+                    <div id="url-input-container" class="space-y-4">
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <input type="url" id="url-input" required class="flex-grow w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="Paste a bank offer URL here..."> 
+                            <button type="submit" id="submit-button" class="bg-blue-600 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 flex-shrink-0">
+                                <span id="submit-button-text"></span> 
+                                <svg id="submit-spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Manual Input -->
+                    <div id="manual-input-container" class="space-y-4 hidden">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div class="flex items-start">
+                                <svg class="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <div>
+                                    <h3 class="text-sm font-medium text-blue-800">Manual Content Mode</h3>
+                                    <p class="text-sm text-blue-700 mt-1">Paste the website content directly to bypass scraping issues or when the URL doesn't work.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <label for="manual-content" class="block text-sm font-medium text-gray-700">
+                                Website Content
+                                <span class="text-gray-500 font-normal">(HTML, text, or copied content)</span>
+                            </label>
+                            <textarea 
+                                id="manual-content" 
+                                rows="8" 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition resize-none font-mono text-sm"
+                                placeholder="Paste the website content, HTML, or text here...&#10;&#10;Tip: You can copy the entire page content (Ctrl+A, Ctrl+C) from the bank's website and paste it here."
+                            ></textarea>
+                            
+                            <div class="flex justify-between items-center">
+                                <div class="text-xs text-gray-500">
+                                    <span id="char-count">0</span> characters
+                                </div>
+                                <button type="submit" id="manual-submit-button" class="bg-green-600 text-white font-semibold px-6 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200">
+                                    <span id="manual-submit-button-text">Process Content</span>
+                                    <svg id="manual-submit-spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>

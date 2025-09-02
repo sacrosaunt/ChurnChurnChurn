@@ -167,7 +167,7 @@ This information is crucial because many bank offers are restricted to "new cust
         --- RAW WEBSITE TEXT END ---
         """
         
-        print("🔍 Analyzing fine print for additional considerations...")
+
         model_for_considerations = openai_model_default if openai_model_default else flash_model
         result = call_ai(considerations_prompt, model_for_considerations, use_short_tokens=False)
         
@@ -198,11 +198,9 @@ This information is crucial because many bank offers are restricted to "new cust
                 result = reconstructed
             
         offers[offer_id]['details']['additional_considerations'] = result
-        print(f"✅ Fine print analysis complete")
 
     if offer_id in offers:
         offers[offer_id]['processing_step'] = "Done"
-        print(f"🎉 All AI processing finished for offer {offer_id}")
         
         # Brief delay to ensure "Done" step is visible in UI before status change
         time.sleep(1.0)
@@ -210,4 +208,3 @@ This information is crucial because many bank offers are restricted to "new cust
         offers[offer_id]['status'] = 'completed'
         # Save the completed offer to storage
         save_offer(offer_id)
-        print(f"✅ Offer {offer_id} processing completed")
