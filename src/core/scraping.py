@@ -54,7 +54,7 @@ def scrape_and_process_url(url, offer_id):
             return
 
         offers[offer_id]['processing_step'] = "Condensing Terms"
-        print("AI check passed. Creating a summary of the offer terms.")
+        print("Validation check passed. Creating a summary of the offer terms.")
         summary_prompt = f"""
         Condense the following bank offer text into a verbose bulleted list of all key terms, conditions, numbers, and dates. 
 
@@ -144,7 +144,7 @@ def process_manual_content(content, offer_id):
             return
 
         offers[offer_id]['processing_step'] = "Condensing Terms"
-        print("AI check passed. Creating a summary of the offer terms.")
+        print("Validation check passed. Creating a summary of the offer terms.")
         summary_prompt = f"""
         Condense the following bank offer text into a verbose bulleted list of all key terms, conditions, numbers, and dates. 
 

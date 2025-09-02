@@ -928,9 +928,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <div class="flex-1 mb-3">
                     <div class="text-2xl font-bold text-green-600 mb-2" data-field="bonus_to_be_received">
-                        ${hasMultipleTiers ? `Up to ${formatValue(displayBonus, 'currency')}` : formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-20', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
+                        ${hasMultipleTiers ? `<div class="text-sm font-normal text-gray-900 mb-0.5">Up to</div><div class="text-2xl font-bold text-green-600">${formatValue(displayBonus, 'currency')}</div>` : formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-20', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
                     </div>
-                    ${hasMultipleTiers ? '<p class="text-xs text-blue-600 mb-2">Multiple tiers available</p>' : ''}
                 </div>
                 
                 <div class="text-sm text-gray-500 flex items-center">
@@ -1411,9 +1410,8 @@ Tips:
                             <div class="text-left md:text-right mt-4 md:mt-0 md:ml-6">
                                 <div class="flex flex-col items-end">
                                     <p class="text-5xl font-bold text-green-600" data-field="bonus_to_be_received">
-                                        ${hasMultipleTiers ? `Up to ${formatValue(displayBonus, 'currency')}` : formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
+                                        ${hasMultipleTiers ? `<div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-l-4 border-green-500"><div class="text-sm font-normal text-gray-700 mb-1">Up to</div><div class="text-5xl font-bold text-green-600">${formatValue(displayBonus, 'currency')}</div></div>` : `<div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-l-4 border-green-500"><div class="text-5xl font-bold text-green-600">${formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}</div></div>`}
                                     </p>
-                                    ${hasMultipleTiers ? '<span class="text-sm text-gray-500 mt-1">Multiple tiers available</span>' : ''}
                                 </div>
                             </div>
                         </div>
