@@ -1563,59 +1563,59 @@ Tips:
             });
         });
 
-        // Add status dropdown functionality
-        const statusDropdownTrigger = document.querySelector('.status-dropdown-trigger');
-        const statusDropdownMenu = document.querySelector('.status-dropdown-menu');
-        const statusChevron = document.querySelector('.status-chevron');
-        
-        if (statusDropdownTrigger && statusDropdownMenu) {
-            // Toggle dropdown on trigger click
-            statusDropdownTrigger.addEventListener('click', (e) => {
+        // Add status dropdown functionality for ALL instances (mobile + sidebar)
+        const dropdownTriggers = Array.from(document.querySelectorAll('.status-dropdown-trigger'));
+        const closeAllStatusMenus = () => {
+            document.querySelectorAll('.status-dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+            document.querySelectorAll('.status-dropdown-menu').forEach(menu => menu.classList.remove('show'));
+            document.querySelectorAll('.status-chevron').forEach(ch => ch.classList.remove('rotated'));
+        };
+
+        dropdownTriggers.forEach(trigger => {
+            const wrapper = trigger.closest('.relative');
+            if (!wrapper) return;
+            const menu = wrapper.querySelector('.status-dropdown-menu');
+            const chevron = trigger.querySelector('.status-chevron');
+
+            if (!menu) return;
+
+            // Toggle dropdown on trigger click (per instance)
+            trigger.addEventListener('click', (e) => {
                 e.stopPropagation();
-                
-                if (statusDropdownMenu.classList.contains('hidden')) {
-                    // Show dropdown
-                    statusDropdownMenu.classList.remove('hidden');
-                    statusDropdownMenu.classList.add('show');
-                    if (statusChevron) statusChevron.classList.add('rotated');
-                } else {
-                    // Hide dropdown
-                    statusDropdownMenu.classList.remove('show');
-                    statusDropdownMenu.classList.add('hidden');
-                    if (statusChevron) statusChevron.classList.remove('rotated');
+                const isHidden = menu.classList.contains('hidden');
+                closeAllStatusMenus();
+                if (isHidden) {
+                    menu.classList.remove('hidden');
+                    menu.classList.add('show');
+                    if (chevron) chevron.classList.add('rotated');
                 }
             });
 
-            // Handle dropdown option selection
-            document.querySelectorAll('.status-dropdown-option').forEach(option => {
+            // Handle dropdown option selection (per instance)
+            wrapper.querySelectorAll('.status-dropdown-option').forEach(option => {
                 option.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const id = e.currentTarget.dataset.id;
                     const status = e.currentTarget.dataset.status;
-                    
-                    // Prevent rapid clicking
-                    if (statusUpdateTimeout) {
-                        return;
-                    }
-                    
+
+                    if (statusUpdateTimeout) return;
+
                     updateOfferStatus(id, status);
-                    
-                    // Animate closing
-                    statusDropdownMenu.classList.remove('show');
-                    statusDropdownMenu.classList.add('hidden');
-                    if (statusChevron) statusChevron.classList.remove('rotated');
+                    menu.classList.remove('show');
+                    menu.classList.add('hidden');
+                    if (chevron) chevron.classList.remove('rotated');
                 });
             });
+        });
 
-            // Close dropdown when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!statusDropdownTrigger.contains(e.target) && !statusDropdownMenu.contains(e.target)) {
-                    statusDropdownMenu.classList.remove('show');
-                    statusDropdownMenu.classList.add('hidden');
-                    if (statusChevron) statusChevron.classList.remove('rotated');
-                }
-            });
-        }
+        // Close any open dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const anyWrapper = (e.target && (e.target.closest && e.target.closest('.status-dropdown-trigger')))
+                || (e.target && (e.target.closest && e.target.closest('.status-dropdown-menu')));
+            if (!anyWrapper) {
+                closeAllStatusMenus();
+            }
+        });
         document.getElementById('delete-offer-btn').addEventListener('click', deleteOffer);
         document.getElementById('refresh-all-btn').addEventListener('click', refreshAllData);
         

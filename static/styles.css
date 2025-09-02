@@ -357,6 +357,9 @@ input[type="checkbox"].sr-only {
     gap: 2rem;
     min-height: 100vh;
     align-items: start;
+    width: 100vw; /* full-bleed so main stays centered, sidebar to the edge */
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
 }
 
 .detail-main-content {
@@ -374,6 +377,7 @@ input[type="checkbox"].sr-only {
     position: sticky;
     top: 2rem;
     padding-top: 0;
+    z-index: 10; /* keep status trigger clickable above nearby content */
 }
 
 /* Status oblong button styles */
@@ -568,6 +572,9 @@ input[type="checkbox"].sr-only {
         display: grid;
         grid-template-columns: 1fr minmax(0, 56rem) 1fr;
         gap: 2rem;
+        width: auto; /* cancel full-bleed on small screens */
+        margin-left: 0;
+        margin-right: 0;
     }
     
     .detail-main-content {
