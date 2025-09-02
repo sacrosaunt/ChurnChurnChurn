@@ -776,6 +776,15 @@ document.addEventListener('DOMContentLoaded', () => {
             groupedOffers[statusKey].offers.push(offer);
         });
 
+        // Sort offers within each status group by bonus amount (descending)
+        Object.keys(groupedOffers).forEach(statusKey => {
+            groupedOffers[statusKey].offers.sort((a, b) => {
+                const bonusA = parseFloat(String(a.details?.bonus_to_be_received || '0').replace(/[^0-9.-]+/g,"")) || 0;
+                const bonusB = parseFloat(String(b.details?.bonus_to_be_received || '0').replace(/[^0-9.-]+/g,"")) || 0;
+                return bonusB - bonusA; // Descending order (highest bonus first)
+            });
+        });
+
         // Render groups in order
         statusOrder.forEach(statusKey => {
             if (groupedOffers[statusKey] && groupedOffers[statusKey].offers.length > 0) {
