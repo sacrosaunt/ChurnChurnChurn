@@ -337,6 +337,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const { skeletonOptions = {}, offerStatus = '', fieldName = '', offer = null } = options;
         if (offerStatus !== 'failed' && String(value).toLowerCase().includes('processing')) {
             const { width, alignClass } = skeletonOptions;
+            // Special handling for bonus field to ensure skeleton stays in container
+            if (fieldName === 'bonus_to_be_received') {
+                return skeleton(width, alignClass);
+            }
             return skeleton(width, alignClass);
         }
         if (offerStatus === 'failed' && String(value).toLowerCase().includes('processing')) {
@@ -359,7 +363,12 @@ document.addEventListener('DOMContentLoaded', () => {
         switch(type) {
             case 'currency':
                 const num = parseFloat(String(processedValue).replace(/[^0-9.-]+/g,""));
-                return !isNaN(num) ? `$${num.toLocaleString()}` : processedValue;
+                const formattedCurrency = !isNaN(num) ? `$${num.toLocaleString()}` : processedValue;
+                // Special handling for bonus field to ensure proper container structure
+                if (fieldName === 'bonus_to_be_received') {
+                    return formattedCurrency;
+                }
+                return formattedCurrency;
             case 'boolean':
                 const valStr = String(processedValue).toLowerCase().replace(/[^\w]/g, '');
                 if (valStr === 'true' || valStr === 'yes') return 'Yes';
@@ -928,7 +937,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <div class="flex-1 mb-3">
                     <div class="text-2xl font-bold text-green-600 mb-2" data-field="bonus_to_be_received">
-                        ${hasMultipleTiers ? `<div class="text-sm font-normal text-gray-900 mb-0.5">Up to</div><div class="text-2xl font-bold text-green-600">${formatValue(displayBonus, 'currency')}</div>` : formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-20', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
+                        ${(() => {
+                            // Check if bonus value is available (not processing)
+                            const bonusValue = details.bonus_to_be_received;
+                            const isBonusAvailable = bonusValue && !String(bonusValue).toLowerCase().includes('processing');
+                            
+                            if (isBonusAvailable) {
+                                // If we have multiple tiers and they're available, show tier display
+                                if (hasMultipleTiers && details.bonus_tiers_detailed && !String(details.bonus_tiers_detailed).toLowerCase().includes('processing')) {
+                                    return `<div class="text-sm font-normal text-gray-900 mb-0.5">Up to</div><div class="text-2xl font-bold text-green-600">${formatValue(displayBonus, 'currency')}</div>`;
+                                } else {
+                                    // Show single bonus value
+                                    return formatValue(bonusValue, 'currency');
+                                }
+                            } else {
+                                // Show skeleton
+                                return formatValue(bonusValue, 'currency', { skeletonOptions: { width: 'w-20', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' });
+                            }
+                        })()}
                     </div>
                 </div>
                 
@@ -1410,7 +1436,32 @@ Tips:
                             <div class="text-left md:text-right mt-4 md:mt-0 md:ml-6">
                                 <div class="flex flex-col items-end">
                                     <p class="text-5xl font-bold text-green-600" data-field="bonus_to_be_received">
-                                        ${hasMultipleTiers ? `<div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-l-4 border-green-500"><div class="text-sm font-normal text-gray-700 mb-1">Up to</div><div class="text-5xl font-bold text-green-600">${formatValue(displayBonus, 'currency')}</div></div>` : `<div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-l-4 border-green-500"><div class="text-5xl font-bold text-green-600">${formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}</div></div>`}
+                                        ${(() => {
+                                            // Check if bonus value is available (not processing)
+                                            const bonusValue = details.bonus_to_be_received;
+                                            const isBonusAvailable = bonusValue && !String(bonusValue).toLowerCase().includes('processing');
+                                            
+                                            // Always show the green container
+                                            if (isBonusAvailable) {
+                                                // If we have multiple tiers and they're available, show tier display
+                                                if (hasMultipleTiers && details.bonus_tiers_detailed && !String(details.bonus_tiers_detailed).toLowerCase().includes('processing')) {
+                                                    return `<div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-l-4 border-green-500">
+                                                        <div class="text-sm font-normal text-gray-700 mb-1">Up to</div>
+                                                        <div class="text-5xl font-bold text-green-600">${formatValue(displayBonus, 'currency')}</div>
+                                                    </div>`;
+                                                } else {
+                                                    // Show single bonus value
+                                                    return `<div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-l-4 border-green-500">
+                                                        <div class="text-5xl font-bold text-green-600">${formatValue(bonusValue, 'currency')}</div>
+                                                    </div>`;
+                                                }
+                                            } else {
+                                                // Show skeleton
+                                                return `<div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-l-4 border-green-500">
+                                                    <div class="text-5xl font-bold text-green-600">${formatValue(bonusValue, 'currency', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}</div>
+                                                </div>`;
+                                            }
+                                        })()}
                                     </p>
                                 </div>
                             </div>
@@ -1655,6 +1706,16 @@ Tips:
                                 const oldOffer = app.offers[offerId];
                                 if (oldOffer) {
                                     for (const [fieldName, newValue] of Object.entries(updatedOffer.details)) {
+                                        // Special handling for bonus field - maintain container structure by re-rendering
+                                        if (fieldName === 'bonus_to_be_received') {
+                                            // Update the offer in app state
+                                            app.offers[offerId] = updatedOffer;
+                                            // Re-render the detail view to ensure the green container and skeleton are correct
+                                            renderDetailView(updatedOffer);
+                                            // Continue polling
+                                            setTimeout(pollForUpdate, 500);
+                                            return;
+                                        }
                                         const oldValue = oldOffer.details[fieldName];
                                         if (oldValue && newValue !== oldValue) {
                                             const metricValue = document.querySelector(`[data-field="${fieldName}"].metric-value`);
@@ -1717,8 +1778,8 @@ Tips:
                                                             }
                                                         }
                                                     
-                                                    // Handle bonus amount, bank name, and account title animations
-                                                    if (fieldName === 'bonus_to_be_received' || fieldName === 'bank_name' || fieldName === 'account_title') {
+                                                    // Handle bank name and account title animations (bonus is re-rendered below)
+                                                    if (fieldName === 'bank_name' || fieldName === 'account_title') {
                                                         const formattedValue = formatValue(newValue, getValueType(fieldName), { fieldName, offerStatus: updatedOffer.status });
                                                         
                                                         // Animate elements with data-field attribute
@@ -2234,6 +2295,19 @@ Tips:
                             
                             // Handle bonus amount, bank name, and account title animations
                             if (fieldName === 'bonus_to_be_received' || fieldName === 'bank_name' || fieldName === 'account_title') {
+                                // Special handling for bonus field - re-render the entire detail view
+                                if (fieldName === 'bonus_to_be_received') {
+                                    // Update the offer in app state
+                                    app.offers[newOffer.id] = newOffer;
+                                    
+                                    // Re-render the detail view to show the updated bonus
+                                    renderDetailView(newOffer);
+                                    
+                                    // Continue polling
+                                    setTimeout(fetchAllOffers, 500);
+                                    return;
+                                }
+                                
                                 const formattedValue = formatValue(newValue, getValueType(fieldName), { fieldName, offerStatus: newOffer.status });
                                 
                                 // Animate all elements with the data-field attribute
