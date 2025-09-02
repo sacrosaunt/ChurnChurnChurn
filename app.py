@@ -5,6 +5,7 @@ import re
 import requests
 import random
 import time
+import logging
 from flask import Flask, jsonify, request, render_template, send_from_directory, redirect, url_for
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
@@ -33,6 +34,9 @@ load_dotenv()
 
 # Initialize clients on startup
 initialize_ai_clients()
+
+# Configure logging to suppress 200 level status logs
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
 
 # --- Flask App ---
 app = Flask(__name__, static_folder='static')
