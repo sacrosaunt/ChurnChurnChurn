@@ -98,6 +98,11 @@ body {
     opacity: 0;
 }
 
+/* Continuous spinner animation that doesn't reset */
+.spinner-continuous {
+    transform-origin: center;
+}
+
 .fade-in-glide-up-delay-6 {
     animation: fadeInGlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards;
     opacity: 0;
@@ -207,6 +212,11 @@ body {
 /* Blue color animation for considerations content */
 .considerations-container div:not(.refresh-progress):not(.flex).fade-in-glide-up {
     color: #3b82f6; /* Blue color during animation */
+}
+
+/* Ensure refresh progress bar width transitions are smooth and consistent */
+.refresh-progress-bar {
+    transition: width 0.3s ease-in-out;
 }
 
 .consideration-line {

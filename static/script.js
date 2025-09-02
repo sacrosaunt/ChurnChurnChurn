@@ -1,4 +1,66 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- HELPER FUNCTIONS ---
+    // Global spinner management
+    window.spinnerManager = {
+        spinners: new Map(),
+        animationId: null,
+        
+        startSpinner: (spinner, startTime) => {
+            const spinnerId = Math.random().toString(36).substr(2, 9);
+            window.spinnerManager.spinners.set(spinnerId, { spinner, startTime });
+            
+            if (!window.spinnerManager.animationId) {
+                window.spinnerManager.animate();
+            }
+            
+            return spinnerId;
+        },
+        
+        stopSpinner: (spinnerId) => {
+            window.spinnerManager.spinners.delete(spinnerId);
+            
+            if (window.spinnerManager.spinners.size === 0 && window.spinnerManager.animationId) {
+                cancelAnimationFrame(window.spinnerManager.animationId);
+                window.spinnerManager.animationId = null;
+            }
+        },
+        
+        animate: () => {
+            const now = Date.now();
+            
+            window.spinnerManager.spinners.forEach(({ spinner, startTime }) => {
+                if (spinner && spinner.isConnected) {
+                    const elapsed = now - startTime;
+                    const rotation = (elapsed / 1000) * 360; // 360 degrees per second
+                    spinner.style.transform = `rotate(${rotation}deg)`;
+                }
+            });
+            
+            window.spinnerManager.animationId = requestAnimationFrame(() => {
+                window.spinnerManager.animate();
+            });
+        }
+    };
+
+    const initializeSpinners = () => {
+        // Initialize any existing spinners with proper rotation based on elapsed time
+        document.querySelectorAll('.spinner-continuous').forEach(spinner => {
+            const tile = spinner.closest('.metric-tile, .considerations-container');
+            if (tile) {
+                const fieldName = tile.dataset.field;
+                const offerId = tile.dataset.offerId;
+                const activeKey = `${offerId}:${fieldName}`;
+                const activeRefresh = window.app && window.app.activeRefreshes && window.app.activeRefreshes[activeKey];
+                
+                if (activeRefresh && activeRefresh.startTime) {
+                    // Start the spinner animation
+                    const spinnerId = window.spinnerManager.startSpinner(spinner, activeRefresh.startTime);
+                    spinner.dataset.spinnerId = spinnerId;
+                }
+            }
+        });
+    };
+
     // --- TEXT CONFIGURATION ---
     const TEXT_CONTENT = {
         app: {
@@ -1189,6 +1251,12 @@ Tips:
                             String(value).includes('<span class="text-gray-400">N/A</span>');
             
             const hiddenClass = isNAValue ? 'metric-tile-na hidden' : '';
+
+            // Preserve in-progress refresh overlay across re-renders
+            const activeKey = `${offerId}:${fieldName}`;
+            const active = (window.app && window.app.activeRefreshes) ? window.app.activeRefreshes[activeKey] : null;
+            const progressHiddenClass = active ? '' : 'hidden';
+            const progressLabel = (active && active.label) ? active.label : 'Rescraping';
             
             return `
             <div class="metric-tile bg-white p-4 rounded-lg shadow-md text-center flex flex-col justify-center h-32 relative group ${hiddenClass}" data-field="${fieldName}" data-offer-id="${offerId}" data-label="${label}">
@@ -1205,15 +1273,18 @@ Tips:
                         <div class="absolute top-0 left-4 transform -translate-y-1 w-2 h-2 bg-gray-900 rotate-45"></div>
                     </div>
                 </div>` : ''}
-                <div class="refresh-progress hidden absolute inset-0 bg-blue-50 bg-opacity-90 rounded-lg flex items-center justify-center">
+                <div class="refresh-progress ${progressHiddenClass} absolute inset-0 bg-blue-50 bg-opacity-90 rounded-lg flex items-center justify-center">
                     <div class="text-center w-full px-4">
-                        <div class="overflow-hidden h-2 mb-2 text-xs flex rounded bg-blue-200">
-                            <div class="refresh-progress-bar shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-500 ease-out" style="width: 0%"></div>
+                        <div class="flex items-center justify-center mb-2">
+                            <svg class="spinner-continuous h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
                         </div>
-                        <div class="text-xs text-blue-600">Rescraping</div>
+                        <div class="text-xs text-blue-600">${progressLabel}</div>
                     </div>
                 </div>
-                <button class="refresh-button absolute top-3 right-3 bg-white text-gray-600 rounded-lg w-8 h-8 flex items-center justify-center text-xs hover:bg-gray-50 hover:text-blue-600 border border-gray-200 shadow-sm transition-all duration-200 opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100" title="Rescan?" style="display: none;">
+                <button class="refresh-button absolute top-3 right-3 bg-white text-gray-600 rounded-lg w-8 h-8 flex items-center justify-center text-xs hover:bg-gray-50 hover:text-blue-600 border border-gray-200 shadow-sm transition-all duration-200 opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100" title="Rescan?" style="display: ${active ? 'none' : 'none'};">
                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                     </svg>
@@ -1333,7 +1404,7 @@ Tips:
                             </div>
                         </div>
                         <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
-                            <div id="processing-progress-bar" style="width: ${initialProgressBarWidth}" data-target-width="${progressPercentage}%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-500 ease-out"></div>
+                            <div id="processing-progress-bar" style="width: ${initialProgressBarWidth}; transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);" data-target-width="${progressPercentage}%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-1000"></div>
                         </div>
                     </div>
                 `;
@@ -1372,24 +1443,32 @@ Tips:
         const createConsiderationsList = (offer) => {
             const data = (offer.details || {}).additional_considerations || 'N/A';
             const contentHtml = createConsiderationsContent(data, offer.status);
+            const fieldName = 'additional_considerations';
+            const activeKey = `${offer.id}:${fieldName}`;
+            const active = (window.app && window.app.activeRefreshes) ? window.app.activeRefreshes[activeKey] : null;
+            const progressHiddenClass = active ? '' : 'hidden';
+            const progressLabel = (active && active.label) ? active.label : 'Rescraping';
 
             return `
                 <div class="considerations-container bg-white p-6 rounded-lg shadow-md relative group" data-field="additional_considerations" data-offer-id="${offer.id}">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold">${TEXT_CONTENT.detail.considerationsTitle}</h3>
-                        <button class="refresh-button bg-white text-gray-600 rounded-lg w-8 h-8 flex items-center justify-center text-xs hover:bg-gray-50 hover:text-blue-600 border border-gray-200 shadow-sm transition-all duration-200 opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100" title="Refresh considerations" style="display: none;">
+                        <button class="refresh-button bg-white text-gray-600 rounded-lg w-8 h-8 flex items-center justify-center text-xs hover:bg-gray-50 hover:text-blue-600 border border-gray-200 shadow-sm transition-all duration-200 opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100" title="Refresh considerations" style="display: ${active ? 'none' : 'none'};">
                             <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                             </svg>
                         </button>
                     </div>
                     ${contentHtml}
-                    <div class="refresh-progress hidden absolute inset-0 bg-blue-50 bg-opacity-90 rounded-lg flex items-center justify-center">
+                    <div class="refresh-progress ${progressHiddenClass} absolute inset-0 bg-blue-50 bg-opacity-90 rounded-lg flex items-center justify-center">
                         <div class="text-center w-full px-4">
-                            <div class="overflow-hidden h-2 mb-2 text-xs flex rounded bg-blue-200">
-                                <div class="refresh-progress-bar shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-500 ease-out" style="width: 0%"></div>
+                            <div class="flex items-center justify-center mb-2">
+                                <svg class="spinner-continuous h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
                             </div>
-                            <div class="text-xs text-blue-600">Rescraping</div>
+                            <div class="text-xs text-blue-600">${progressLabel}</div>
                         </div>
                     </div>
                 </div>`;
@@ -1665,17 +1744,33 @@ Tips:
                 e.stopPropagation();
                 
                 // Show progress and hide button
+                console.log('[rescrape-debug] metric tile: click refresh', { offerId, fieldName, t: Date.now() });
                 progressDiv.classList.remove('hidden');
                 refreshButton.style.display = 'none';
+                // Track active refresh so overlay persists across re-renders
+                window.app.activeRefreshes = window.app.activeRefreshes || {};
+                const activeKey_metric = `${offerId}:${fieldName}`;
+                const refreshStartTime = Date.now();
+                window.app.activeRefreshes[activeKey_metric] = { label: 'Rescraping', startTime: refreshStartTime };
                 
-                const progressBar = tile.querySelector('.refresh-progress-bar');
                 const stepText = tile.querySelector('.refresh-progress .text-xs:last-child');
+                const spinner = tile.querySelector('.spinner-continuous');
                 
-                // Update progress for step 1 (rescraping)
-                progressBar.style.width = '0%';
+                // Start the spinner animation
+                if (spinner) {
+                    const spinnerId = window.spinnerManager.startSpinner(spinner, refreshStartTime);
+                    spinner.dataset.spinnerId = spinnerId;
+                }
+                
+                // Update text for step 1 (rescraping)
                 stepText.textContent = 'Rescraping';
+                console.log('[rescrape-debug] metric tile: show overlay + set Rescraping');
                 
                 try {
+                    // Grace period to avoid race where backend hasn't set refresh_status yet
+                    const refreshStartTime = Date.now();
+                    let seenRefreshStatus = false;
+                    console.log('[rescrape-debug] metric tile: POST /refresh start');
                     const response = await fetch(`${API_URL}/${offerId}/refresh`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1686,25 +1781,36 @@ Tips:
                         const errorData = await response.json().catch(() => ({}));
                         throw new Error(errorData.error || `Refresh failed (HTTP ${response.status})`);
                     }
+                    console.log('[rescrape-debug] metric tile: POST /refresh ok');
                     
                     // Poll for updates with progress tracking
                     const pollForUpdate = async () => {
                         try {
+                            console.log('[rescrape-debug] metric tile: GET offer start');
                             const offerResponse = await fetch(`${API_URL}/${offerId}`);
                             const updatedOffer = await offerResponse.json();
+                            console.log('[rescrape-debug] metric tile: GET offer ok', {
+                                hasRefreshStatus: !!(updatedOffer.refresh_status && updatedOffer.refresh_status[fieldName]),
+                                refreshStatus: updatedOffer.refresh_status && updatedOffer.refresh_status[fieldName],
+                                dt: Date.now() - refreshStartTime
+                            });
                             
                             if (updatedOffer.refresh_status && updatedOffer.refresh_status[fieldName]) {
-                                // Update progress based on actual status
+                                seenRefreshStatus = true;
+                                // Update text based on actual status
                                 const status = updatedOffer.refresh_status[fieldName];
                                 if (status === 'rescraping') {
-                                    progressBar.style.width = '15%';
                                     stepText.textContent = 'Rescraping';
+                                    window.app.activeRefreshes[activeKey_metric] = { label: 'Rescraping', startTime: refreshStartTime };
+                                    console.log('[rescrape-debug] metric tile: status rescraping');
                                 } else if (status === 'querying') {
-                                    progressBar.style.width = '40%';
                                     stepText.textContent = 'Querying';
+                                    window.app.activeRefreshes[activeKey_metric] = { label: 'Querying', startTime: refreshStartTime };
+                                    console.log('[rescrape-debug] metric tile: status querying');
                                 } else if (status === 'consensus') {
-                                    progressBar.style.width = '80%';
                                     stepText.textContent = 'Consensus';
+                                    window.app.activeRefreshes[activeKey_metric] = { label: 'Consensus', startTime: refreshStartTime };
+                                    console.log('[rescrape-debug] metric tile: status consensus');
                                 }
                                 
                                 // Check for value changes and animate immediately
@@ -1713,10 +1819,32 @@ Tips:
                                     for (const [fieldName, newValue] of Object.entries(updatedOffer.details)) {
                                         // Special handling for bonus field - maintain container structure by re-rendering
                                         if (fieldName === 'bonus_to_be_received') {
+                                            // Preserve current overlay state before re-render
+                                            const prevText = stepText ? stepText.textContent : '';
+                                            const activeRefresh = window.app.activeRefreshes[activeKey_metric];
+                                            const elapsed = activeRefresh ? Date.now() - activeRefresh.startTime : 0;
                                             // Update the offer in app state
                                             app.offers[offerId] = updatedOffer;
                                             // Re-render the detail view to ensure the green container and skeleton are correct
                                             renderDetailView(updatedOffer);
+                                            // Initialize spinners after re-render
+                                            setTimeout(initializeSpinners, 0);
+                                            // Re-acquire elements and keep overlay visible with previous text and spinner rotation
+                                            const newTile = document.querySelector(`.metric-tile[data-offer-id="${offerId}"][data-field="${fieldName}"]`);
+                                            if (newTile) {
+                                                const newProgressDiv = newTile.querySelector('.refresh-progress');
+                                                const newStep = newTile.querySelector('.refresh-progress .text-xs:last-child');
+                                                const newSpinner = newTile.querySelector('.spinner-continuous');
+                                                if (newProgressDiv) newProgressDiv.classList.remove('hidden');
+                                                if (newStep && prevText) newStep.textContent = prevText;
+                                                if (newSpinner && activeRefresh && activeRefresh.startTime) {
+                                                    // Restart the spinner animation with the same start time
+                                                    const spinnerId = window.spinnerManager.startSpinner(newSpinner, activeRefresh.startTime);
+                                                    newSpinner.dataset.spinnerId = spinnerId;
+                                                }
+                                                // Update local refs
+                                                stepText = newStep || stepText;
+                                            }
                                             // Continue polling
                                             setTimeout(pollForUpdate, 500);
                                             return;
@@ -1750,11 +1878,18 @@ Tips:
                                 // Continue polling every 500ms during refresh
                                 setTimeout(pollForUpdate, 500);
                                                             } else {
+                                    console.log('[rescrape-debug] metric tile: no refresh_status on GET', { dt: Date.now() - refreshStartTime, seenRefreshStatus });
+                                    // If we haven't seen any refresh status yet, keep polling briefly
+                                    if (!seenRefreshStatus && (Date.now() - refreshStartTime) < 2000) {
+                                        setTimeout(pollForUpdate, 200);
+                                        return;
+                                    }
                                     // Check if the progress div is still visible (user hasn't navigated away)
                                     if (!progressDiv.classList.contains('hidden')) {
                                         // Complete - show completion state for a moment
-                                        progressBar.style.width = '100%';
                                         stepText.textContent = 'Complete!';
+                                        window.app.activeRefreshes[activeKey_metric] = { label: 'Complete!', startTime: refreshStartTime };
+                                        console.log('[rescrape-debug] metric tile: mark complete + renderDetailView soon');
 
                                         const finalUpdate = () => {
                                             // Check for any values that changed during processing
@@ -1797,8 +1932,21 @@ Tips:
                                             }
                                         }
                                         
+                                        // Stop the spinner animation
+                                        const oldSpinner = tile.querySelector('.spinner-continuous');
+                                        if (oldSpinner && oldSpinner.dataset.spinnerId) {
+                                            window.spinnerManager.stopSpinner(oldSpinner.dataset.spinnerId);
+                                        }
+                                        
+                                        // Clear active refresh BEFORE updating offer and re-rendering
+                                        if (window.app && window.app.activeRefreshes) {
+                                            delete window.app.activeRefreshes[activeKey_metric];
+                                        }
+                                        
                                         app.offers[offerId] = updatedOffer;
                                         renderDetailView(updatedOffer);
+                                        // Initialize spinners after re-render
+                                        setTimeout(initializeSpinners, 0);
                                     };
 
                                     // Check if the view is still active before updating
@@ -1813,13 +1961,21 @@ Tips:
                             console.error('Error polling for update:', error);
                             
                             // Show error completion state briefly before hiding
-                            progressBar.style.width = '100%';
                             stepText.textContent = 'Error';
                             
                             setTimeout(() => {
+                                console.log('[rescrape-debug] metric tile: error -> hide overlay');
+                                // Stop the spinner animation
+                                const oldSpinner = tile.querySelector('.spinner-continuous');
+                                if (oldSpinner && oldSpinner.dataset.spinnerId) {
+                                    window.spinnerManager.stopSpinner(oldSpinner.dataset.spinnerId);
+                                }
                                 progressDiv.classList.add('hidden');
                                 refreshButton.style.display = 'block';
                                 refreshButton.style.opacity = '0';
+                                if (window.app && window.app.activeRefreshes) {
+                                    delete window.app.activeRefreshes[activeKey_metric];
+                                }
                             }, 1000);
                         }
                     };
@@ -1828,9 +1984,18 @@ Tips:
                     
                 } catch (error) {
                     console.error('Error refreshing field:', error);
+                    console.log('[rescrape-debug] metric tile: POST error -> hide overlay');
+                    // Stop the spinner animation
+                    const oldSpinner = tile.querySelector('.spinner-continuous');
+                    if (oldSpinner && oldSpinner.dataset.spinnerId) {
+                        window.spinnerManager.stopSpinner(oldSpinner.dataset.spinnerId);
+                    }
                     progressDiv.classList.add('hidden');
                     refreshButton.style.display = 'block';
                     refreshButton.style.opacity = '0';
+                    if (window.app && window.app.activeRefreshes) {
+                        delete window.app.activeRefreshes[activeKey_metric];
+                    }
                     
                     // Show error message to user
                     alert(`Failed to refresh field: ${error.message}`);
@@ -1863,17 +2028,33 @@ Tips:
                 e.stopPropagation();
                 
                 // Show progress and hide button
+                console.log('[rescrape-debug] considerations: click refresh', { offerId, fieldName, t: Date.now() });
                 progressDiv.classList.remove('hidden');
                 refreshButton.style.display = 'none';
+                // Track active refresh so overlay persists across re-renders
+                window.app.activeRefreshes = window.app.activeRefreshes || {};
+                const activeKey_cons = `${offerId}:${fieldName}`;
+                const refreshStartTime = Date.now();
+                window.app.activeRefreshes[activeKey_cons] = { label: 'Starting...', startTime: refreshStartTime };
                 
-                const progressBar = container.querySelector('.refresh-progress-bar');
                 const stepText = container.querySelector('.refresh-progress .text-xs:last-child');
+                const spinner = container.querySelector('.spinner-continuous');
                 
-                // Update progress for step 1 (rescraping)
-                progressBar.style.width = '0%';
+                // Start the spinner animation
+                if (spinner) {
+                    const spinnerId = window.spinnerManager.startSpinner(spinner, refreshStartTime);
+                    spinner.dataset.spinnerId = spinnerId;
+                }
+                
+                // Update text for step 1 (rescraping)
                 stepText.textContent = 'Starting...';
+                console.log('[rescrape-debug] considerations: show overlay + set Starting');
                 
                 try {
+                    // Grace period to avoid race where backend hasn't set refresh_status yet
+                    const refreshStartTime = Date.now();
+                    let seenRefreshStatus = false;
+                    console.log('[rescrape-debug] considerations: POST /refresh start');
                     const response = await fetch(`${API_URL}/${offerId}/refresh`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1888,21 +2069,31 @@ Tips:
                     // Poll for updates with progress tracking
                     const pollForUpdate = async () => {
                         try {
+                            console.log('[rescrape-debug] considerations: GET offer start');
                             const offerResponse = await fetch(`${API_URL}/${offerId}`);
                             const updatedOffer = await offerResponse.json();
+                            console.log('[rescrape-debug] considerations: GET offer ok', {
+                                hasRefreshStatus: !!(updatedOffer.refresh_status && updatedOffer.refresh_status[fieldName]),
+                                refreshStatus: updatedOffer.refresh_status && updatedOffer.refresh_status[fieldName],
+                                dt: Date.now() - refreshStartTime
+                            });
                             
                             if (updatedOffer.refresh_status && updatedOffer.refresh_status[fieldName]) {
-                                // Update progress based on actual status
+                                seenRefreshStatus = true;
+                                // Update text based on actual status
                                 const status = updatedOffer.refresh_status[fieldName];
                                 if (status === 'rescraping') {
-                                    progressBar.style.width = '15%';
                                     stepText.textContent = 'Rescraping';
+                                    window.app.activeRefreshes[activeKey_cons] = { label: 'Rescraping', startTime: refreshStartTime };
+                                    console.log('[rescrape-debug] considerations: status rescraping');
                                 } else if (status === 'querying') {
-                                    progressBar.style.width = '40%';
                                     stepText.textContent = 'Querying';
+                                    window.app.activeRefreshes[activeKey_cons] = { label: 'Querying', startTime: refreshStartTime };
+                                    console.log('[rescrape-debug] considerations: status querying');
                                 } else if (status === 'consensus') {
-                                    progressBar.style.width = '80%';
                                     stepText.textContent = 'Consensus';
+                                    window.app.activeRefreshes[activeKey_cons] = { label: 'Consensus', startTime: refreshStartTime };
+                                    console.log('[rescrape-debug] considerations: status consensus');
                                 }
                                 
                                 // Check for value changes and animate immediately
@@ -1938,11 +2129,26 @@ Tips:
                                 // Continue polling every 500ms during refresh
                                 setTimeout(pollForUpdate, 500);
                                                             } else {
+                                    console.log('[rescrape-debug] considerations: no refresh_status on GET', { dt: Date.now() - refreshStartTime, seenRefreshStatus });
+                                    // If we haven't seen any refresh status yet, keep polling briefly
+                                    if (!seenRefreshStatus && (Date.now() - refreshStartTime) < 2000) {
+                                        setTimeout(pollForUpdate, 200);
+                                        return;
+                                    }
                                     // Check if the progress div is still visible (user hasn't navigated away)
                                     if (!progressDiv.classList.contains('hidden')) {
                                         // Complete - show completion state for a moment
-                                        progressBar.style.width = '100%';
                                         stepText.textContent = 'Complete';
+                                        window.app.activeRefreshes[activeKey_cons] = { label: 'Complete', startTime: refreshStartTime };
+                                        // Hide overlay shortly after completion
+                                        setTimeout(() => {
+                                            try {
+                                                progressDiv.classList.add('hidden');
+                                                refreshButton.style.display = 'block';
+                                                refreshButton.style.opacity = '0';
+                                            } catch (_) {}
+                                        }, 600);
+                                        console.log('[rescrape-debug] considerations: mark complete + renderDetailView soon');
 
                                         const finalUpdate = () => {
                                             // Check for any values that changed during processing
@@ -1987,6 +2193,8 @@ Tips:
                                         
                                         app.offers[offerId] = updatedOffer;
                                         renderDetailView(updatedOffer);
+                                        // Initialize spinners after re-render
+                                        setTimeout(initializeSpinners, 0);
                                     };
 
                                     // Check if the view is still active before updating
@@ -1995,19 +2203,39 @@ Tips:
                                     } else {
                                         finalUpdate();
                                     }
+                                    // Stop the spinner animation
+                                    const oldSpinner = container.querySelector('.spinner-continuous');
+                                    if (oldSpinner && oldSpinner.dataset.spinnerId) {
+                                        window.spinnerManager.stopSpinner(oldSpinner.dataset.spinnerId);
+                                    }
+                                    
+                                    // After showing completion briefly, clear active refresh tracking
+                                    setTimeout(() => {
+                                        if (window.app && window.app.activeRefreshes) {
+                                            delete window.app.activeRefreshes[activeKey_cons];
+                                        }
+                                    }, 1000);
                                 }
                             }
                         } catch (error) {
                             console.error('Error polling for update:', error);
                             
                             // Show error completion state briefly before hiding
-                            progressBar.style.width = '100%';
                             stepText.textContent = 'Error';
                             
                             setTimeout(() => {
+                                console.log('[rescrape-debug] considerations: error -> hide overlay');
+                                // Stop the spinner animation
+                                const oldSpinner = container.querySelector('.spinner-continuous');
+                                if (oldSpinner && oldSpinner.dataset.spinnerId) {
+                                    window.spinnerManager.stopSpinner(oldSpinner.dataset.spinnerId);
+                                }
                                 progressDiv.classList.add('hidden');
                                 refreshButton.style.display = 'block';
                                 refreshButton.style.opacity = '0';
+                                if (window.app && window.app.activeRefreshes) {
+                                    delete window.app.activeRefreshes[activeKey_cons];
+                                }
                             }, 1000);
                         }
                     };
@@ -2016,9 +2244,18 @@ Tips:
                     
                 } catch (error) {
                     console.error('Error refreshing field:', error);
+                    console.log('[rescrape-debug] considerations: POST error -> hide overlay');
+                    // Stop the spinner animation
+                    const oldSpinner = container.querySelector('.spinner-continuous');
+                    if (oldSpinner && oldSpinner.dataset.spinnerId) {
+                        window.spinnerManager.stopSpinner(oldSpinner.dataset.spinnerId);
+                    }
                     progressDiv.classList.add('hidden');
                     refreshButton.style.display = 'block';
                     refreshButton.style.opacity = '0';
+                    if (window.app && window.app.activeRefreshes) {
+                        delete window.app.activeRefreshes[activeKey_cons];
+                    }
                     
                     // Show error message to user
                     alert(`Failed to refresh field: ${error.message}`);
@@ -2173,8 +2410,11 @@ Tips:
     const scheduleNextFetch = () => {
         // Check if any offers are processing or if any refresh operations are in progress
         const isProcessing = Object.values(app.offers).some(offer => offer.status === 'processing');
-        const isRefreshing = Object.values(app.offers).some(offer => offer.refresh_status && 
-            Object.values(offer.refresh_status).some(status => status === 'rescraping' || status === 'processing'));
+        const isRefreshing = (
+            (Object.values(app.offers).some(offer => offer.refresh_status && 
+                Object.values(offer.refresh_status).some(status => status === 'rescraping' || status === 'querying' || status === 'consensus')))
+            || (window.app && window.app.refreshActiveCount > 0)
+        );
         
 
         
@@ -2284,6 +2524,8 @@ Tips:
             });
         }
     };
+
+
 
     const fetchAllOffers = async () => {
         try {

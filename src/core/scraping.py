@@ -41,7 +41,7 @@ def scrape_and_process_url(url, offer_id):
         if not page_text:
             raise ValueError("Could not find any text content in the page body.")
 
-        print("Checking if it's a banking offer page with AI.")
+        print("Checking if it's a banking offer page.")
         # Add a small delay to make the validation step visible
         time.sleep(0.5)
         if not is_banking_offer_page(page_text):
@@ -88,7 +88,7 @@ def scrape_and_process_url(url, offer_id):
         # Summary created successfully (content not logged to console)
         
         offers[offer_id]['processing_step'] = "Extracting Details"
-        print("Summary created. Starting parallel AI queries from summary.")
+        print("Summary created.")
         extract_offer_details_with_ai(summary_content, page_text, offer_id)
 
     except requests.RequestException as e:
@@ -131,7 +131,7 @@ def process_manual_content(content, offer_id):
         if not page_text:
             raise ValueError("Could not extract any text content from the provided content.")
 
-        print("Checking if it's a banking offer page with AI.")
+        print("Checking if it's a banking offer page.")
         # Add a small delay to make the validation step visible
         time.sleep(0.5)
         if not is_banking_offer_page(page_text):
@@ -178,7 +178,7 @@ def process_manual_content(content, offer_id):
         # Summary created successfully (content not logged to console)
         
         offers[offer_id]['processing_step'] = "Extracting Details"
-        print("Summary created. Starting parallel AI queries from summary.")
+        print("Summary created.")
         extract_offer_details_with_ai(summary_content, page_text, offer_id)
 
     except Exception as e:
