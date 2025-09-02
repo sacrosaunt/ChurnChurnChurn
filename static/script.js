@@ -8,8 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
             addOfferTitle: 'Add New Offer',
             urlInputPlaceholder: 'Paste a bank offer URL here...',
             submitButtonText: 'Add Offer',
-            manualContentPlaceholder: 'Paste the website content, HTML, or text here...',
-            manualSubmitButtonText: 'Process Content',
+
             noOffersMessage: 'No offers have been added yet. Paste a URL above to get started.',
         },
         summary: {
@@ -65,11 +64,11 @@ document.addEventListener('DOMContentLoaded', () => {
         errors: {
             scrapingFailedTitle: 'Scraping Failed',
             scrapingFailedMessage: 'The application was unable to retrieve information from this URL. The website may be down or is actively blocking automated scrapers. You can try visiting the source URL directly.',
-            manualModeSuggestion: 'Try using Manual Mode instead - paste the website content directly to bypass scraping issues.',
+
         },
         // For processing progress bar
         processingSteps: ["Scraping Website", "Validating Offer", "Condensing Terms", "Extracting Details", "Analyzing Fine Print", "Done"],
-        manualProcessingSteps: ["Validating Content", "Condensing Terms", "Extracting Details", "Analyzing Fine Print", "Done"],
+
 
     };
 
@@ -122,19 +121,10 @@ document.addEventListener('DOMContentLoaded', () => {
         sortOrderBtn: document.getElementById('sort-order-btn'),
         sortOrderText: document.getElementById('sort-order-text'),
         sortOrderIcon: document.getElementById('sort-order-icon'),
-        // Manual Mode Elements
-        urlInputContainer: document.getElementById('url-input-container'),
-        manualInputContainer: document.getElementById('manual-input-container'),
-        manualContent: document.getElementById('manual-content'),
-        manualSubmitButton: document.getElementById('manual-submit-button'),
-        manualSubmitButtonText: document.getElementById('manual-submit-button-text'),
-        manualSubmitSpinner: document.getElementById('manual-submit-spinner'),
         // State
         offers: {},
         currentFilter: 'status',
         isAscending: false,
-        currentMode: 'url', // 'url' or 'manual'
-        originalUrlForManual: null, // Track original URL when switching from failed scrape
     };
 
     // --- INITIALIZE STATIC TEXT ---
@@ -147,8 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('add-offer-title').textContent = TEXT_CONTENT.app.addOfferTitle;
         app.urlInput.placeholder = TEXT_CONTENT.app.urlInputPlaceholder;
         app.submitButtonText.textContent = TEXT_CONTENT.app.submitButtonText;
-        app.manualContent.placeholder = TEXT_CONTENT.app.manualContentPlaceholder;
-        app.manualSubmitButtonText.textContent = TEXT_CONTENT.app.manualSubmitButtonText;
         document.getElementById('no-offers-text').textContent = TEXT_CONTENT.app.noOffersMessage;
         app.filterLabel.textContent = TEXT_CONTENT.list.orderBy;
         document.getElementById('filter-all').textContent = TEXT_CONTENT.list.orderOptions.all;
@@ -633,28 +621,7 @@ document.addEventListener('DOMContentLoaded', () => {
         app.submitSpinner.classList.toggle('hidden', !isLoading);
     };
 
-    const setManualLoadingState = (isLoading) => {
-        app.manualSubmitButton.disabled = isLoading;
-        app.manualContent.disabled = isLoading;
-        app.manualSubmitButtonText.classList.toggle('hidden', isLoading);
-        app.manualSubmitSpinner.classList.toggle('hidden', !isLoading);
-    };
 
-    const switchMode = (mode) => {
-        app.currentMode = mode;
-        
-        if (mode === 'url') {
-            app.urlInputContainer.classList.remove('hidden');
-            app.manualInputContainer.classList.add('hidden');
-            app.urlInput.required = true;
-            app.manualContent.required = false;
-        } else {
-            app.urlInputContainer.classList.add('hidden');
-            app.manualInputContainer.classList.remove('hidden');
-            app.urlInput.required = false;
-            app.manualContent.required = true;
-        }
-    };
 
     const getOfferStatus = (offer) => {
         if (offer.status === 'processing') return { status: 'processing', statusClass: 'status-processing', statusText: TEXT_CONTENT.status.processing };
@@ -957,10 +924,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </a>
                             </p>
                             <div class="mt-4 p-4 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg">
-                                <p class="text-sm text-blue-800 font-medium">💡 ${TEXT_CONTENT.errors.manualModeSuggestion}</p>
-                                <button id="try-manual-mode-btn" class="mt-2 bg-blue-600 text-white text-sm px-4 py-2 rounded-md hover:bg-blue-700 transition">
-                                    Switch to Manual Mode
-                                </button>
+                                <div class="mt-3">
+                                    <textarea id="failed-scrape-content" rows="6" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-vertical" placeholder="Paste the website content, HTML, or text here..."></textarea>
+                                    <div class="flex justify-end mt-2">
+                                        <button id="submit-failed-content-btn" class="bg-blue-600 text-white text-sm px-4 py-2 rounded-md hover:bg-blue-700 transition">
+                                            Process Content
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -976,59 +947,95 @@ document.addEventListener('DOMContentLoaded', () => {
             if (backButton) {
                 backButton.addEventListener('click', async (e) => {
                     e.preventDefault();
-                    console.log('🔙 Back button clicked (failed offer), previousPage:', app.previousPage);
+
                     if (app.previousPage === 'planning') {
                         window.location.href = '/planning';
                     } else {
-                        console.log('🔄 Refreshing offers before returning to dashboard');
+
                         // Refresh offers before navigating back to dashboard
                         await fetchAllOffers();
                         window.location.hash = '';
                         // Force a re-render of the dashboard to show updated data
                         setTimeout(() => {
-                            console.log('🏠 Forcing handleRouteChange to refresh dashboard');
+
                             handleRouteChange();
                         }, 10);
                     }
                 });
             }
             
-            // Add manual mode button functionality
-            document.getElementById('try-manual-mode-btn').addEventListener('click', async () => {
-                // Get the original URL from the failed offer
-                const originalUrl = offer.url;
-                
-                // Delete the failed offer
-                try {
-                    await fetch(`${API_URL}/${offer.id}`, { method: 'DELETE' });
-                    delete app.offers[offer.id];
-                } catch (error) {
-                    console.error('Error deleting failed offer:', error);
+            // Add failed scrape content submission functionality
+            const failedScrapeContent = document.getElementById('failed-scrape-content');
+            const submitFailedBtn = document.getElementById('submit-failed-content-btn');
+            
+            // Auto-submit on paste
+            failedScrapeContent.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                failedScrapeContent.value = pastedText;
+                // Auto-submit after a short delay to allow the paste to complete
+                setTimeout(() => {
+                    submitFailedBtn.click();
+                }, 100);
+            });
+            
+            submitFailedBtn.addEventListener('click', async () => {
+                const content = document.getElementById('failed-scrape-content').value.trim();
+                if (!content) {
+                    alert('Please paste the website content before submitting.');
+                    return;
                 }
                 
-                // Navigate back to list view and switch to manual mode
-                window.location.hash = '';
-                window.history.replaceState(null, '', window.location.pathname);
+                // Show loading state
+                const submitBtn = document.getElementById('submit-failed-content-btn');
+                const originalText = submitBtn.textContent;
+                submitBtn.textContent = 'Processing...';
+                submitBtn.disabled = true;
                 
-                // Switch to manual mode
-                setTimeout(() => {
-                    const modeToggle = document.getElementById('mode-toggle');
-                    if (modeToggle) {
-                        modeToggle.checked = true;
-                        switchMode('manual');
-                        
-                        // Set the original URL for manual submission
-                        app.originalUrlForManual = originalUrl;
-                        
-                        // Pre-fill the manual content with a message about the original URL
-                        const manualContent = document.getElementById('manual-content');
-                        if (manualContent) {
-                            manualContent.value = `Please paste the website content from: ${originalUrl}\n\n[Paste the website content here...]`;
-                            manualContent.focus();
-                            manualContent.setSelectionRange(manualContent.value.length, manualContent.value.length);
-                        }
+                try {
+                    // Delete the failed offer first
+                    await fetch(`${API_URL}/${offer.id}`, { method: 'DELETE' });
+                    delete app.offers[offer.id];
+                    
+                    // Submit the content as a new offer
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            content,
+                            original_url: offer.url 
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'An unknown error occurred while processing the content.');
                     }
-                }, 100);
+
+                    const newOffer = await response.json();
+                    app.offers[newOffer.id] = newOffer;
+                    
+                    // Clear the form
+                    document.getElementById('failed-scrape-content').value = '';
+                    
+                    // Start polling if processing
+                    if (newOffer.status === 'processing') {
+
+                        scheduleNextFetch();
+                    }
+                    
+                    // Trigger route change and navigate to the new offer's detail page
+                    handleRouteChange();
+                    window.location.hash = `#/offer/${newOffer.id}`;
+                    
+                } catch (error) {
+                    console.error('Error processing failed scrape content:', error);
+                    alert(`Failed to process the content: ${error.message}`);
+                    
+                    // Reset button state
+                    submitBtn.textContent = originalText;
+                    submitBtn.disabled = false;
+                }
             });
             return; // Stop further rendering
         }
@@ -1131,9 +1138,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const createStatusSelector = (offer, initialProgressBarWidth) => {
             if (offer.status === 'processing') {
-                // Determine if this is a manual mode offer
-                const isManualMode = offer.url && offer.url.startsWith('manual-content-');
-                const steps = isManualMode ? TEXT_CONTENT.manualProcessingSteps : TEXT_CONTENT.processingSteps;
+                const steps = TEXT_CONTENT.processingSteps;
                 let currentStepIndex = steps.indexOf(offer.processing_step);
                 if (currentStepIndex === -1) {
                     // Handle error states that aren't in the normal flow
@@ -1316,20 +1321,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 <div class="flex justify-between items-center bg-white p-4 rounded-lg shadow-md">
                      <div class="flex items-center gap-2">
-                         ${offer.url.startsWith('manual-content-') ? 
-                             `<button id="set-original-url-btn" class="text-sm text-blue-500 hover:underline flex items-center gap-1">
-                                 ${TEXT_CONTENT.detail.sourceLink}
-                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                                 </svg>
-                             </button>` :
-                             `<a href="${offer.url}" target="_blank" class="text-sm text-blue-500 hover:underline flex items-center gap-1" title="${offer.url}">
-                                 ${TEXT_CONTENT.detail.sourceLink}
-                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                                 </svg>
-                             </a>`
-                         }
+                         <a href="${offer.url}" target="_blank" class="text-sm text-blue-500 hover:underline flex items-center gap-1" title="${offer.url}">
+                             ${TEXT_CONTENT.detail.sourceLink}
+                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                             </svg>
+                         </a>
                      </div>
                      <div class="flex items-center gap-2">
                          <button id="refresh-all-btn" data-id="${offer.id}" class="text-sm text-blue-600 hover:text-blue-800 py-2 px-4 rounded-md hover:bg-blue-50 transition flex items-center gap-1 ${offer.status === 'processing' ? 'opacity-50 cursor-not-allowed' : ''}" ${offer.status === 'processing' ? 'disabled' : ''}>
@@ -1429,33 +1426,23 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add back button functionality
         document.getElementById('back-button').addEventListener('click', async (e) => {
             e.preventDefault();
-            console.log('🔙 Back button clicked, previousPage:', app.previousPage);
+
             if (app.previousPage === 'planning') {
                 window.location.href = '/planning';
             } else {
-                console.log('🔄 Refreshing offers before returning to dashboard');
+
                 // Refresh offers before navigating back to dashboard
                 await fetchAllOffers();
                 window.location.hash = '';
                 // Force a re-render of the dashboard to show updated data
                 setTimeout(() => {
-                    console.log('🏠 Forcing handleRouteChange to refresh dashboard');
+
                     handleRouteChange();
                 }, 10);
             }
         });
         
-        // Add event listener for setting original URL (manual mode offers)
-        const setOriginalUrlBtn = document.getElementById('set-original-url-btn');
-        if (setOriginalUrlBtn) {
-            setOriginalUrlBtn.addEventListener('click', () => {
-                const originalUrl = prompt('Enter the original URL for this offer:');
-                if (originalUrl && originalUrl.trim()) {
-                    // Update the offer URL
-                    updateOfferUrl(offer.id, originalUrl.trim());
-                }
-            });
-        }
+
 
         // Add hover functionality for metric tiles
         document.querySelectorAll('.metric-tile').forEach(tile => {
@@ -1983,10 +1970,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isRefreshing = Object.values(app.offers).some(offer => offer.refresh_status && 
             Object.values(offer.refresh_status).some(status => status === 'rescraping' || status === 'processing'));
         
-        // Debug logging
-        if (isProcessing || isRefreshing) {
-            console.log(`🔄 Scheduling next fetch in 500ms - Processing: ${isProcessing}, Refreshing: ${isRefreshing}`);
-        }
+
         
         // Fast polling during processing/rescraping, otherwise no polling
         if (isProcessing || isRefreshing) {
@@ -2135,9 +2119,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (newOffer.status === 'processing' && oldOffer.status === 'processing') {
                         const progressBar = document.getElementById('processing-progress-bar');
                         if (progressBar) {
-                            // Determine if this is a manual mode offer
-                            const isManualMode = newOffer.url && newOffer.url.startsWith('manual-content-');
-                            const steps = isManualMode ? TEXT_CONTENT.manualProcessingSteps : TEXT_CONTENT.processingSteps;
+                                                    const steps = TEXT_CONTENT.processingSteps;
                             let currentStepIndex = steps.indexOf(newOffer.processing_step);
                             if (currentStepIndex === -1) {
                                 // Handle error states that aren't in the normal flow
@@ -2245,7 +2227,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateOfferStatus = async (id, statusKey) => {
         // Check if this offer is already being updated
         if (offerUpdateLocks.has(id)) {
-            console.log(`Offer ${id} is already being updated, skipping...`);
             return;
         }
         
@@ -2430,6 +2411,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
                 delete app.offers[id];
                 window.location.hash = '';
+                // Fetch all offers to update the list
+                await fetchAllOffers();
             } catch (error) {
                 console.error('Error deleting offer:', error);
                 alert('Failed to delete the offer.');
@@ -2460,14 +2443,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (confirm('This will re-process the entire offer from scratch. This may take a few minutes. Continue?')) {
             try {
-                console.log('Starting refresh for offer:', offer.id, 'URL:', offer.url, 'Has original_content:', !!offer.original_content);
                 
                 // Show processing state and reset all fields to skeletons
                 offer.status = 'processing';
-                offer.processing_step = offer.url.startsWith('manual-content-') ? 'Validating Content' : 'Scraping Website';
+                offer.processing_step = 'Scraping Website';
                 
                 // Start polling immediately for refresh operations
-                console.log('🚀 Starting polling for refresh operation:', offer.id);
                 scheduleNextFetch();
                 
                 // Reset all details to Processing... state
@@ -2503,12 +2484,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Start the refresh process
                 const requestBody = { refresh_offer_id: id };
                 
-                // Only include URL if this is a URL-based offer (not manual content)
-                if (!offer.url.startsWith('manual-content-')) {
-                    requestBody.url = offer.url;
-                }
-                
-                console.log('Sending refresh request:', requestBody);
+                requestBody.url = offer.url;
                 
                 const response = await fetch(`${API_URL}`, {
                     method: 'POST',
@@ -2638,7 +2614,6 @@ document.addEventListener('DOMContentLoaded', () => {
             handleRouteChange();
             // Start polling immediately if the new offer is processing
             if (newOffer.status === 'processing') {
-                console.log('🚀 Starting polling for new processing offer:', newOffer.id);
                 scheduleNextFetch();
             }
             // Go directly to the new offer's detail page
@@ -2654,52 +2629,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     app.form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (app.currentMode === 'url') {
-            submitUrl(app.urlInput.value.trim());
-        } else {
-            // For manual mode, we need to send the content
-            setManualLoadingState(true);
-            try {
-                const content = app.manualContent.value.trim();
-                const requestBody = { content };
-                
-                // Include original URL if available (from failed scrape)
-                if (app.originalUrlForManual) {
-                    requestBody.original_url = app.originalUrlForManual;
-                }
-                
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody)
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    alert(errorData.error || 'An unknown error occurred while adding the offer.');
-                    return;
-                }
-
-                const newOffer = await response.json();
-                app.offers[newOffer.id] = newOffer;
-                app.manualContent.value = ''; // Clear the manual input
-                app.originalUrlForManual = null; // Clear the original URL
-                handleRouteChange();
-                // Start polling immediately if the new offer is processing
-                if (newOffer.status === 'processing') {
-                    console.log('🚀 Starting polling for new processing offer (manual):', newOffer.id);
-                    scheduleNextFetch();
-                }
-                // Go directly to the new offer's detail page
-                window.location.hash = `#/offer/${newOffer.id}`;
-
-            } catch (error) {
-                console.error('Error adding offer:', error);
-                alert('A network error occurred. Please check your connection and try again.');
-            } finally {
-                setManualLoadingState(false);
-            }
-        }
+        submitUrl(app.urlInput.value.trim());
     });
 
     app.urlInput.addEventListener('paste', (e) => {
@@ -2709,13 +2639,7 @@ document.addEventListener('DOMContentLoaded', () => {
         submitUrl(pastedText.trim());
     });
 
-    app.manualContent.addEventListener('paste', (e) => {
-        e.preventDefault();
-        const pastedText = (e.clipboardData || window.clipboardData).getData('text');
-        app.manualContent.value = pastedText;
-        // Auto-submit the form for manual mode
-        app.form.dispatchEvent(new Event('submit'));
-    });
+
 
     app.filterSelect.addEventListener('change', (e) => {
         app.currentFilter = e.target.value;
@@ -2749,15 +2673,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- INITIALIZATION ---
     initStaticText(); // Populate the main page text
     
-    // Set up mode toggle functionality
-    const modeToggle = document.getElementById('mode-toggle');
-    modeToggle.addEventListener('change', (e) => {
-        const mode = e.target.checked ? 'manual' : 'url';
-        switchMode(mode);
-    });
-    
-    // Initialize in automatic (URL) mode
-    switchMode('url');
+
     
     window.addEventListener('hashchange', handleRouteChange);
     
