@@ -2193,6 +2193,32 @@ Tips:
         maybeRemoveSibling(el.previousElementSibling);
     };
 
+    // Detect whether a formatted value should be treated as N/A
+    const isNAFormattedValue = (value) => {
+        if (value === null || value === undefined) return true;
+        const lower = String(value).toLowerCase();
+        return (
+            lower === 'n/a' ||
+            lower.includes('<span') && lower.includes('n/a')
+        );
+    };
+
+    // Toggle a metric tile's visibility based on the provided formatted value
+    const updateMetricTileVisibility = (element, formattedValue) => {
+        if (!element || !element.classList || !element.classList.contains('metric-value')) return;
+        const tile = element.closest('.metric-tile');
+        if (!tile) return;
+        const shouldHide = isNAFormattedValue(formattedValue);
+        if (shouldHide) {
+            tile.classList.add('metric-tile-na', 'hidden');
+        } else {
+            tile.classList.remove('metric-tile-na', 'hidden');
+        }
+        if (typeof updateHiddenTilesIndicator === 'function') {
+            updateHiddenTilesIndicator();
+        }
+    };
+
     const animateValue = (element, newValue) => {
         if (!element) return;
         
@@ -2201,6 +2227,8 @@ Tips:
         
         // Swap in the real value
         element.innerHTML = newValue;
+        // If this is a metric tile value, update tile hidden/visible state immediately
+        updateMetricTileVisibility(element, newValue);
         
         // Remove any skeleton loaders that were children of this element
         removeSkeletonLoaders(element);
