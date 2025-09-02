@@ -1477,7 +1477,7 @@ Tips:
             const progressLabel = (active && active.label) ? active.label : 'Rescraping';
             
             return `
-            <div class="metric-tile bg-white p-4 rounded-lg shadow-md text-center flex flex-col justify-center h-32 relative group ${hiddenClass}" data-field="${fieldName}" data-offer-id="${offerId}" data-label="${label}">
+            <div class="metric-tile bg-white p-4 rounded-lg shadow-md text-center flex flex-col justify-center min-h-32 relative group ${hiddenClass}" data-field="${fieldName}" data-offer-id="${offerId}" data-label="${label}">
                 <dt class="text-sm font-medium text-gray-500 truncate">${label}</dt>
                 <dd class="metric-value mt-1 text-3xl font-bold tracking-tight ${extraClass}" data-field="${fieldName}">${value}</dd>
                 ${subtitle ? `<dd class="text-xs text-gray-400 -mt-1">${subtitle}</dd>` : ''}
@@ -1612,18 +1612,42 @@ Tips:
 
                 
                 return `
-                    <h3 class="text-lg font-semibold mb-2 text-center">${TEXT_CONTENT.detail.processingTitle}</h3>
-                    <div class="relative pt-2">
-                        <div class="flex mb-2 items-center justify-between">
-                            <div>
-                                <span class="text-xs font-semibold inline-block text-blue-600">
-                                    ${offer.processing_step}... (Step ${currentStepIndex + 1} of ${steps.length})
-                                </span>
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="bg-blue-100 rounded-full p-2">
+                                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-blue-900">${TEXT_CONTENT.detail.processingTitle}</h3>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-blue-900">${Math.round(progressPercentage)}%</div>
+                                <div class="text-xs text-blue-600">Complete</div>
                             </div>
                         </div>
-                        <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
-                            <div id="processing-progress-bar" style="width: ${initialProgressBarWidth}; transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);" data-target-width="${progressPercentage}%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-1000"></div>
+                        
+                        <div class="mb-3">
+                            <div class="flex items-center justify-between text-sm text-blue-700 mb-2">
+                                <span class="font-medium">${offer.processing_step}</span>
+                                <span class="text-xs step-counter">Step ${currentStepIndex + 1} of ${steps.length}</span>
+                            </div>
+                            <div class="relative">
+                                <div class="w-full bg-blue-200 rounded-full h-3 overflow-hidden">
+                                    <div id="processing-progress-bar" 
+                                         style="width: ${initialProgressBarWidth}; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);" 
+                                         data-target-width="${progressPercentage}%" 
+                                         class="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-1000 relative overflow-hidden">
+                                        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+                        
+
                     </div>
                 `;
             }
@@ -1668,7 +1692,7 @@ Tips:
             const progressLabel = (active && active.label) ? active.label : 'Rescraping';
 
             return `
-                <div class="considerations-container bg-white p-6 rounded-lg shadow-md relative group" data-field="additional_considerations" data-offer-id="${offer.id}">
+                <div class="considerations-container bg-white p-6 rounded-lg shadow-md relative group min-h-48" data-field="additional_considerations" data-offer-id="${offer.id}">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold">${TEXT_CONTENT.detail.considerationsTitle}</h3>
                         <button class="refresh-button bg-white text-gray-600 rounded-lg w-8 h-8 flex items-center justify-center text-xs hover:bg-gray-50 hover:text-blue-600 border border-gray-200 shadow-sm transition-all duration-200 opacity-0 group-hover:opacity-100 transform scale-90 group-hover:scale-100" title="Refresh considerations" style="display: ${active ? 'none' : 'none'};">
@@ -2698,6 +2722,32 @@ Tips:
         }, 600);
     };
 
+    const animatePercentage = (startValue, endValue, element) => {
+        if (!element) return;
+        
+        const duration = 1000; // 1 second duration
+        const startTime = performance.now();
+        
+        const easeOutCubic = (t) => {
+            return 1 - Math.pow(1 - t, 2);
+        };
+        
+        const updatePercentage = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const easedProgress = easeOutCubic(progress);
+            
+            const currentValue = Math.round(startValue + (endValue - startValue) * easedProgress);
+            element.textContent = `${currentValue}%`;
+            
+            if (progress < 1) {
+                requestAnimationFrame(updatePercentage);
+            }
+        };
+        
+        requestAnimationFrame(updatePercentage);
+    };
+
     // Helper function to find the considerations content div reliably
     const findConsiderationsContentDiv = (considerationsContainer) => {
         // Try multiple selectors to find the content div
@@ -2868,16 +2918,47 @@ Tips:
                             
                             progressBar.style.width = `${progressPercentage}%`;
                             
+                            // Animate the percentage display
+                            const percentageDisplay = document.querySelector('.text-2xl.font-bold.text-blue-900');
+                            if (percentageDisplay) {
+                                const currentPercentage = parseFloat(percentageDisplay.textContent) || 0;
+                                const targetPercentage = Math.round(progressPercentage);
+                                
+                                if (currentPercentage !== targetPercentage) {
+                                    animatePercentage(currentPercentage, targetPercentage, percentageDisplay);
+                                }
+                            }
+                            
                             // Update the step text
-                            const stepText = document.querySelector('.text-xs.font-semibold.inline-block.text-blue-600');
+                            const stepText = document.querySelector('.text-sm.text-blue-700 .font-medium');
                             if (stepText) {
-                                stepText.textContent = `${newOffer.processing_step}... (Step ${currentStepIndex + 1} of ${steps.length})`;
+                                stepText.textContent = newOffer.processing_step;
+                            }
+                            
+                            // Update the step counter
+                            const stepCounter = document.querySelector('.step-counter');
+                            if (stepCounter) {
+                                stepCounter.textContent = `Step ${currentStepIndex + 1} of ${steps.length}`;
                             }
                         }
                     }
                     
                     // Handle completion of processing
                     if (oldOffer.status === 'processing' && newOffer.status !== 'processing') {
+                        // Fade out the progress bar smoothly
+                        const progressContainer = document.querySelector('.bg-gradient-to-r.from-blue-50.to-indigo-50');
+                        if (progressContainer) {
+                            progressContainer.style.transition = 'opacity 0.5s ease-out';
+                            progressContainer.style.opacity = '0';
+                            
+                            // Remove the progress bar after fade-out
+                            setTimeout(() => {
+                                if (progressContainer.parentNode) {
+                                    progressContainer.parentNode.removeChild(progressContainer);
+                                }
+                            }, 500);
+                        }
+                        
                         // Processing is complete, immediately replace all skeleton placeholders
                         for (const [fieldName, newValue] of Object.entries(newOffer.details)) {
                             const oldValue = oldOffer.details[fieldName];
@@ -2896,7 +2977,7 @@ Tips:
                         // Trigger a full re-render to ensure all skeleton placeholders are replaced
                         setTimeout(() => {
                             handleRouteChange();
-                        }, 100); // Very short delay to allow animations to start
+                        }, 600); // Increased delay to allow fade-out animation to complete
                     }
                 }
             }

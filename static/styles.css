@@ -581,45 +581,87 @@ input[type="checkbox"].sr-only {
 
 /* Summary Stats Enhancements */
 #summary-stats {
+    /* Static styling only */
+}
+
+/* Individual Offer Progress Bar Enhancements */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 0.3;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+#processing-progress-bar {
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+#processing-progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 20px;
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.4));
+    border-radius: 0 9999px 9999px 0;
+}
+
+/* Enhanced progress bar container */
+.processing-progress-container {
     transition: all 0.3s ease;
 }
 
-#summary-stats:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-}
-
-/* Enhanced card hover effects */
-#summary-stats .bg-gradient-to-br {
-    transition: all 0.3s ease;
-}
-
-#summary-stats .bg-gradient-to-br:hover {
+.processing-progress-container:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
-/* Icon animations */
-#summary-stats svg {
-    transition: transform 0.3s ease;
+/* Prevent Layout Shifts */
+.metric-tile {
+    min-height: 8rem; /* h-32 equivalent */
+    height: auto;
+    transition: none; /* Disable transitions during content population */
 }
 
-#summary-stats .bg-gradient-to-br:hover svg {
-    transform: scale(1.1);
+.considerations-container {
+    min-height: 12rem; /* h-48 equivalent */
+    height: auto;
+    transition: none; /* Disable transitions during content population */
 }
 
-/* Responsive adjustments */
+/* Ensure grid stability */
+.grid {
+    grid-template-rows: auto;
+}
+
+/* Prevent skeleton loader layout shifts */
+.skeleton-loader {
+    transition: none;
+}
+
+/* Responsive adjustments for progress bar */
 @media (max-width: 768px) {
-    #summary-stats .grid {
-        gap: 1rem;
+    .processing-progress-container .flex {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
     }
     
-    #summary-stats .bg-gradient-to-br {
-        padding: 1rem;
+    .processing-progress-container .text-right {
+        text-align: left;
     }
     
-    #summary-stats .text-3xl {
-        font-size: 1.875rem;
+    .processing-progress-container .text-sm {
+        font-size: 0.75rem;
     }
 }
 
