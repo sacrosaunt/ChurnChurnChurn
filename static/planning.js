@@ -44,6 +44,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // --- HELPER FUNCTIONS ---
+    const parseBonusAmount = (bonusStr) => {
+        if (!bonusStr) return 0;
+        const str = String(bonusStr).toLowerCase();
+        
+        // Handle "up to" cases - extract the maximum amount
+        if (str.includes('up to')) {
+            // Try different patterns for "up to" cases
+            const patterns = [
+                /up to\s*\$?([0-9,]+(?:\.[0-9]+)?)/,
+                /up to\s*([0-9,]+(?:\.[0-9]+)?)/,
+                /up to\s*\$([0-9,]+(?:\.[0-9]+)?)/
+            ];
+            
+            for (const pattern of patterns) {
+                const match = str.match(pattern);
+                if (match) {
+                    return parseFloat(match[1].replace(/,/g, '')) || 0;
+                }
+            }
+        }
+        
+        // Handle regular cases - extract any number
+        const match = str.match(/([0-9,]+(?:\.[0-9]+)?)/);
+        return match ? parseFloat(match[1].replace(/,/g, '')) || 0 : 0;
+    };
+
     // --- PERSISTENT STORAGE ---
     const STORAGE_KEY = 'planning_settings';
     
@@ -458,7 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${timeline.map((item, index) => {
                         const { offer, position, start_date, estimated_completion, pay_cycle } = item;
                         const details = offer.details;
-                        const bonus = parseFloat(String(details.bonus_to_be_received).replace(/[^0-9.-]+/g,"")) || 0;
+                        const bonus = parseBonusAmount(details.bonus_to_be_received);
                         const initialDeposit = parseFloat(String(details.initial_deposit_amount).replace(/[^0-9.-]+/g,"")) || 0;
                         const minDeposit = parseFloat(String(details.minimum_deposit_amount).replace(/[^0-9.-]+/g,"")) || 0;
                         const totalDeposit = parseFloat(String(details.total_deposit_required).replace(/[^0-9.-]+/g,"")) || 0;

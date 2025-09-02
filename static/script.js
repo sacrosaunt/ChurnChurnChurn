@@ -73,6 +73,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     };
 
+    // --- HELPER FUNCTIONS ---
+    const parseBonusAmount = (bonusStr) => {
+        if (!bonusStr) return 0;
+        const str = String(bonusStr).toLowerCase();
+        
+        // Handle "up to" cases - extract the maximum amount
+        if (str.includes('up to')) {
+            // Try different patterns for "up to" cases
+            const patterns = [
+                /up to\s*\$?([0-9,]+(?:\.[0-9]+)?)/,
+                /up to\s*([0-9,]+(?:\.[0-9]+)?)/,
+                /up to\s*\$([0-9,]+(?:\.[0-9]+)?)/
+            ];
+            
+            for (const pattern of patterns) {
+                const match = str.match(pattern);
+                if (match) {
+                    return parseFloat(match[1].replace(/,/g, '')) || 0;
+                }
+            }
+        }
+        
+        // Handle regular cases - extract any number
+        const match = str.match(/([0-9,]+(?:\.[0-9]+)?)/);
+        return match ? parseFloat(match[1].replace(/,/g, '')) || 0 : 0;
+    };
+
     const API_URL = '/api/offers';
     const app = {
         // Views
@@ -553,7 +580,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return cleaned || 'See requirements';
     };
 
-    const createTierDisplay = (tiers, highestBonus) => {
+    const createTierDisplay = (tiers, displayBonus) => {
         if (!tiers || tiers.length <= 1) {
             return '';
         }
@@ -590,7 +617,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="bg-white rounded-lg shadow-md border border-gray-200 p-4 w-80">
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-sm font-semibold text-gray-800">Tier Options</span>
-                    <span class="text-xs font-medium text-green-600">Up to ${formatValue(highestBonus, 'currency')}</span>
+                    <span class="text-xs font-medium text-green-600">Up to ${formatValue(displayBonus, 'currency')}</span>
                 </div>
                 <div class="space-y-2 max-h-64 overflow-y-auto">
                     ${tierItems}
@@ -675,8 +702,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     comparison = b.id - a.id; // Default: newest first
                     break;
                 case 'bonus':
-                    const bonusA = parseFloat(String(a.details.bonus_to_be_received).replace(/[^0-9.-]+/g,"")) || 0;
-                    const bonusB = parseFloat(String(b.details.bonus_to_be_received).replace(/[^0-9.-]+/g,"")) || 0;
+                    const bonusA = parseBonusAmount(a.details?.bonus_to_be_received);
+                    const bonusB = parseBonusAmount(b.details?.bonus_to_be_received);
                     comparison = bonusB - bonusA; // Default: highest first
                     break;
                 case 'expiration':
@@ -732,7 +759,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Calculate totals for all offers
         sortedOffers.forEach(offer => {
             const details = offer.details || {};
-            const bonusAmount = parseFloat(String(details.bonus_to_be_received || '0').replace(/[^0-9.-]+/g,""));
+            const bonusAmount = parseBonusAmount(details.bonus_to_be_received);
             if (!isNaN(bonusAmount)) {
                 if (offer.user_controlled && offer.user_controlled.received) {
                     totalClaimed += bonusAmount;
@@ -779,8 +806,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Sort offers within each status group by bonus amount (descending)
         Object.keys(groupedOffers).forEach(statusKey => {
             groupedOffers[statusKey].offers.sort((a, b) => {
-                const bonusA = parseFloat(String(a.details?.bonus_to_be_received || '0').replace(/[^0-9.-]+/g,"")) || 0;
-                const bonusB = parseFloat(String(b.details?.bonus_to_be_received || '0').replace(/[^0-9.-]+/g,"")) || 0;
+                const bonusA = parseBonusAmount(a.details?.bonus_to_be_received);
+                const bonusB = parseBonusAmount(b.details?.bonus_to_be_received);
                 return bonusB - bonusA; // Descending order (highest bonus first)
             });
         });
@@ -844,12 +871,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Defensive check for offer.details
         const details = offer.details || {};
         
-        const bonusAmount = parseFloat(String(details.bonus_to_be_received || '0').replace(/[^0-9.-]+/g,""));
+        const bonusAmount = parseBonusAmount(details.bonus_to_be_received);
 
         // Parse tier information for tile view
         const tiers = parseTierData(details.bonus_tiers_detailed, details.total_deposit_by_tier);
         const hasMultipleTiers = tiers && tiers.length > 1;
-        const highestBonus = tiers ? Math.max(...tiers.map(t => t.bonus)) : bonusAmount;
+        
+        // For sorting: use the main bonus amount (total maximum)
+        // For display: use the main bonus amount unless it's significantly different from tier sum
+        const tierSum = tiers ? tiers.reduce((sum, t) => sum + t.bonus, 0) : 0;
+        const displayBonus = hasMultipleTiers && Math.abs(tierSum - bonusAmount) <= 10 ? tierSum : bonusAmount;
 
         tile.innerHTML = `
             <div class="flex flex-col h-full">
@@ -869,7 +900,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <div class="flex-1 mb-3">
                     <div class="text-2xl font-bold text-green-600 mb-2" data-field="bonus_to_be_received">
-                        ${hasMultipleTiers ? `Up to ${formatValue(highestBonus, 'currency')}` : formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-20', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
+                        ${hasMultipleTiers ? `Up to ${formatValue(displayBonus, 'currency')}` : formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-20', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
                     </div>
                     ${hasMultipleTiers ? '<p class="text-xs text-blue-600 mb-2">Multiple tiers available</p>' : ''}
                 </div>
@@ -1192,7 +1223,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
         };
 
-        const bonusAmount = parseFloat(String(details.bonus_to_be_received || '0').replace(/[^0-9.-]+/g,""));
+        const bonusAmount = parseBonusAmount(details.bonus_to_be_received);
         
         // Helper function to normalize yes/no values with punctuation
         const normalizeYesNo = (value) => {
@@ -1210,7 +1241,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Parse tier information
         const tiers = parseTierData(details.bonus_tiers_detailed, details.total_deposit_by_tier);
         const hasMultipleTiers = tiers && tiers.length > 1;
-        const highestBonus = tiers ? Math.max(...tiers.map(t => t.bonus)) : bonusAmount;
+        
+        // For sorting: use the main bonus amount (total maximum)
+        // For display: use the main bonus amount unless it's significantly different from tier sum
+        const tierSum = tiers ? tiers.reduce((sum, t) => sum + t.bonus, 0) : 0;
+        const displayBonus = hasMultipleTiers && Math.abs(tierSum - bonusAmount) <= 10 ? tierSum : bonusAmount;
 
         app.detailView.innerHTML = `
             <div class="detail-layout flex justify-center">
@@ -1229,7 +1264,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="text-left md:text-right mt-4 md:mt-0 md:ml-6">
                                 <div class="flex flex-col items-end">
                                     <p class="text-5xl font-bold text-green-600" data-field="bonus_to_be_received">
-                                        ${hasMultipleTiers ? `Up to ${formatValue(highestBonus, 'currency')}` : formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
+                                        ${hasMultipleTiers ? `Up to ${formatValue(displayBonus, 'currency')}` : formatValue(details.bonus_to_be_received, 'currency', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'bonus_to_be_received' })}
                                     </p>
                                     ${hasMultipleTiers ? '<span class="text-sm text-gray-500 mt-1">Multiple tiers available</span>' : ''}
                                 </div>
@@ -1312,7 +1347,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <!-- Status Control -->
         <div class="fixed right-8 top-8 z-50 space-y-4">
             ${createStatusDropdown(offer)}
-            ${hasMultipleTiers ? createTierDisplay(tiers, highestBonus) : ''}
+            ${hasMultipleTiers ? createTierDisplay(tiers, displayBonus) : ''}
         </div>
     </div>
         `;
@@ -2034,7 +2069,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchAllOffers = async () => {
         try {
-            console.log('🔍 fetchAllOffers called');
             const response = await fetch(API_URL);
             const offersData = await response.json();
             let hasChanged = false;
