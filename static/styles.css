@@ -579,6 +579,49 @@ input[type="checkbox"].sr-only {
     }
 }
 
+/* Summary Stats Enhancements */
+#summary-stats {
+    transition: all 0.3s ease;
+}
+
+#summary-stats:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced card hover effects */
+#summary-stats .bg-gradient-to-br {
+    transition: all 0.3s ease;
+}
+
+#summary-stats .bg-gradient-to-br:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Icon animations */
+#summary-stats svg {
+    transition: transform 0.3s ease;
+}
+
+#summary-stats .bg-gradient-to-br:hover svg {
+    transform: scale(1.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #summary-stats .grid {
+        gap: 1rem;
+    }
+    
+    #summary-stats .bg-gradient-to-br {
+        padding: 1rem;
+    }
+    
+    #summary-stats .text-3xl {
+        font-size: 1.875rem;
+    }
+}
 
 
 /* Responsive design */

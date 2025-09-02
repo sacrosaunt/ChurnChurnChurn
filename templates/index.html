@@ -25,12 +25,62 @@
                 </div>
             </header>
 
-            <div id="summary-stats" class="grid grid-cols-2 gap-4 mb-8">
-                <div class="bg-white p-4 rounded-lg shadow-md text-center">
-                    <p id="total-claimed-label" class="text-sm font-medium text-gray-500"></p> <p id="total-claimed" class="text-3xl font-bold text-green-600">$0</p>
+            <div id="summary-stats" class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-gray-900">Portfolio Summary</h2>
+                    <div class="text-sm text-gray-500">
+                        <span id="total-offers-count">0</span> offers tracked
+                    </div>
                 </div>
-                <div class="bg-white p-4 rounded-lg shadow-md text-center">
-                    <p id="total-pending-label" class="text-sm font-medium text-gray-500"></p> <p id="total-pending" class="text-3xl font-bold text-yellow-600">$0</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Total Claimed -->
+                    <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-green-700 mb-1">Total Claimed</p>
+                                <p id="total-claimed" class="text-3xl font-bold text-green-800">$0</p>
+                                <p class="text-xs text-green-600 mt-1">Successfully received bonuses</p>
+                            </div>
+                            <div class="bg-green-200 rounded-full p-3">
+                                <svg class="w-6 h-6 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Total Pending -->
+                    <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4 border border-amber-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-amber-700 mb-1">Total Pending</p>
+                                <p id="total-pending" class="text-3xl font-bold text-amber-800">$0</p>
+                                <p class="text-xs text-amber-600 mt-1">Bonuses in progress</p>
+                            </div>
+                            <div class="bg-amber-200 rounded-full p-3">
+                                <svg class="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Total Potential Earnings -->
+                <div class="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-blue-700 mb-1">Total Potential Earnings</p>
+                            <p id="total-potential" class="text-2xl font-bold text-blue-800">$0</p>
+                            <p class="text-xs text-blue-600 mt-1">Combined value of all tracked offers</p>
+                        </div>
+                        <div class="bg-blue-200 rounded-full p-3">
+                            <svg class="w-6 h-6 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
             </div>
 

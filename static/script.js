@@ -207,6 +207,8 @@ document.addEventListener('DOMContentLoaded', () => {
         submitSpinner: document.getElementById('submit-spinner'),
         totalClaimedEl: document.getElementById('total-claimed'),
         totalPendingEl: document.getElementById('total-pending'),
+        totalOffersCount: document.getElementById('total-offers-count'),
+        totalPotential: document.getElementById('total-potential'),
         filterSelect: document.getElementById('filter-select'),
         filterLabel: document.getElementById('filter-label'),
         sortOrderBtn: document.getElementById('sort-order-btn'),
@@ -234,8 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('app-title-tag').textContent = TEXT_CONTENT.app.title;
         document.getElementById('main-title').textContent = TEXT_CONTENT.app.mainTitle;
         document.getElementById('main-subtitle').textContent = TEXT_CONTENT.app.subtitle;
-        document.getElementById('total-claimed-label').textContent = TEXT_CONTENT.summary.totalClaimed;
-        document.getElementById('total-pending-label').textContent = TEXT_CONTENT.summary.totalPending;
+
         document.getElementById('add-offer-title').textContent = TEXT_CONTENT.app.addOfferTitle;
         app.urlInput.placeholder = TEXT_CONTENT.app.urlInputPlaceholder;
         app.submitButtonText.textContent = TEXT_CONTENT.app.submitButtonText;
@@ -1079,8 +1080,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // Update summary stats
         app.totalClaimedEl.textContent = `$${totalClaimed.toLocaleString()}`;
         app.totalPendingEl.textContent = `$${totalPending.toLocaleString()}`;
+        app.totalOffersCount.textContent = offersArray.length;
+        
+        // Calculate total potential earnings
+        const totalPotential = totalClaimed + totalPending;
+        app.totalPotential.textContent = `$${totalPotential.toLocaleString()}`;
     };
 
     const renderOffersAsTiles = (offers) => {
