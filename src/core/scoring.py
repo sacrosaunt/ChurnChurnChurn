@@ -95,7 +95,8 @@ class Scoring:
         risk_score = 0
         
         # Clawback clause
-        if str(details.get('clawback_clause_present', '')).lower() == 'yes':
+        clawback_status = str(details.get('clawback_clause_present', '')).lower().replace('.', '').replace(',', '').strip()
+        if clawback_status == 'yes':
             risk_score += 3
         
         # High deposit requirements

@@ -332,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const num = parseFloat(String(processedValue).replace(/[^0-9.-]+/g,""));
                 return !isNaN(num) ? `$${num.toLocaleString()}` : processedValue;
             case 'boolean':
-                const valStr = String(processedValue).toLowerCase();
+                const valStr = String(processedValue).toLowerCase().replace(/[^\w]/g, '');
                 if (valStr === 'true' || valStr === 'yes') return 'Yes';
                 if (valStr === 'false' || valStr === 'no') return 'No';
                 return processedValue;
@@ -1184,12 +1184,19 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const bonusAmount = parseFloat(String(details.bonus_to_be_received || '0').replace(/[^0-9.-]+/g,""));
-        const feeIsConditional = String(details.fee_is_conditional || 'No').toLowerCase() === 'yes';
+        
+        // Helper function to normalize yes/no values with punctuation
+        const normalizeYesNo = (value) => {
+            const normalized = String(value || 'No').toLowerCase().replace(/[^\w]/g, '');
+            return normalized === 'yes';
+        };
+        
+        const feeIsConditional = normalizeYesNo(details.fee_is_conditional);
         const clawbackStatus = String(details.clawback_clause_present || 'No');
-        const hasClawback = clawbackStatus.toLowerCase() === 'yes';
+        const hasClawback = normalizeYesNo(details.clawback_clause_present);
         const clawbackDetails = details.clawback_details;
-        const clawbackValue = formatValue(clawbackStatus === 'Processing...' ? 'Processing...' : (clawbackStatus.toLowerCase() === 'yes' ? 'Yes' : 'No'), 'text', { offerStatus: offer.status, fieldName: 'clawback_clause_present' });
-        const clawbackClass = clawbackStatus === 'Processing...' ? 'text-blue-600' : (clawbackStatus.toLowerCase() === 'yes' ? 'text-red-600' : 'text-green-600');
+        const clawbackValue = formatValue(clawbackStatus === 'Processing...' ? 'Processing...' : (hasClawback ? 'Yes' : 'No'), 'text', { offerStatus: offer.status, fieldName: 'clawback_clause_present' });
+        const clawbackClass = clawbackStatus === 'Processing...' ? 'text-blue-600' : (hasClawback ? 'text-red-600' : 'text-green-600');
 
         // Parse tier information
         const tiers = parseTierData(details.bonus_tiers_detailed, details.total_deposit_by_tier);
