@@ -347,6 +347,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
+            // Validate JSON structure before parsing
+            if (!cleanedJson || cleanedJson.trim() === '') {
+                console.warn('Empty tier data');
+                return null;
+            }
+            
             // Try to parse as JSON first
             const tiers = JSON.parse(cleanedJson);
             // Clean totalDepositByTier data too
@@ -363,6 +369,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             return tiers.map(tier => {
+                // Validate tier object structure
+                if (!tier || typeof tier !== 'object') {
+                    console.warn('Invalid tier object:', tier);
+                    return null;
+                }
+                
                 // Handle mixed data types in deposit field
                 let depositAmount = tier.deposit;
                 let depositDescription = null;
@@ -391,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     depositDescription: depositDescription,
                     totalDeposit: deposits ? deposits.find(d => d.tier === tier.tier)?.total_deposit : depositAmount
                 };
-            });
+            }).filter(tier => tier !== null);
         } catch (e) {
             console.warn('Failed to parse tier data as JSON:', e);
             console.warn('Original data:', bonusTiersDetailed);
@@ -418,8 +430,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const shortenTierDescription = (description) => {
         if (!description) return description;
         
-        // Remove dollar sign prefix
-        let cleaned = description.replace(/^\$+/, '').trim();
+        // Keep the original description for pattern matching
+        let cleaned = description.trim();
         
         // Handle specific patterns to create meaningful, concise descriptions
         
@@ -428,47 +440,72 @@ document.addEventListener('DOMContentLoaded', () => {
             return 'Set up direct deposit';
         }
         
-        // Pattern like "$15,000 + maintain 90 days" or "$X + maintain"
-        const dollarPlusMaintainMatch = /\$?([\d,]+)\s*\+\s*maintain\s*(\d+)?\s*days?/i.exec(cleaned);
+        // Pattern like "$15K + maintain 90 days" or "$15,000 + maintain 90 days"
+        const dollarPlusMaintainMatch = /\$([\d,]+)K?\s*\+\s*maintain\s*(\d+)?\s*days?/i.exec(cleaned);
         if (dollarPlusMaintainMatch) {
             const amount = dollarPlusMaintainMatch[1];
             const days = dollarPlusMaintainMatch[2];
-            if (days) {
-                return `$${amount} + maintain ${days} days`;
+            const numericAmount = amount.includes('K') ? parseInt(amount) * 1000 : parseInt(amount);
+            
+            if (days && parseInt(days) > 0) {
+                return `$${numericAmount.toLocaleString()} + maintain ${days} days`;
+            } else if (numericAmount > 100) {
+                return `$${numericAmount.toLocaleString()} + maintain balance`;
             } else {
-                return `$${amount} + maintain`;
+                return 'Maintain minimum balance';
+            }
+        }
+        
+        // Pattern like "$15 + maintain 90 days" (missing K but should be $15K)
+        const shortDollarMaintainMatch = /\$(\d{1,2})\s*\+\s*maintain\s*(\d+)\s*days?/i.exec(cleaned);
+        if (shortDollarMaintainMatch) {
+            const amount = shortDollarMaintainMatch[1];
+            const days = shortDollarMaintainMatch[2];
+            const numericAmount = parseInt(amount);
+            
+            // If it's a small number like $15, it's likely meant to be $15K
+            if (numericAmount <= 50 && parseInt(days) > 30) {
+                return `$${(numericAmount * 1000).toLocaleString()} + maintain ${days} days`;
+            } else if (numericAmount > 100) {
+                return `$${numericAmount.toLocaleString()} + maintain ${days} days`;
+            } else {
+                return 'Maintain minimum balance';
             }
         }
         
         // Complex multi-account requirements
-        if (/open both.*accounts.*and.*meet.*both/i.test(cleaned)) {
+        if (/open both.*accounts/i.test(cleaned)) {
             // Extract key requirements
             const hasDirectDeposit = /direct deposit/i.test(cleaned);
-            const depositMatch = cleaned.match(/\$?([\d,]+)/);
+            const depositMatch = cleaned.match(/\$([\d,]+)K?/);
             const maintainMatch = /maintain.*?(\d+)\s*days/i.exec(cleaned);
             
             let parts = ['Open both accounts'];
             if (hasDirectDeposit) parts.push('direct deposit');
-            if (depositMatch) parts.push(`$${depositMatch[1]} deposit`);
-            if (maintainMatch) parts.push(`maintain ${maintainMatch[1]} days`);
+            if (depositMatch) {
+                const amount = depositMatch[1];
+                const numericAmount = amount.includes('K') ? parseInt(amount) * 1000 : parseInt(amount);
+                if (numericAmount > 100) parts.push(`$${numericAmount.toLocaleString()} deposit`);
+            }
+            if (maintainMatch && parseInt(maintainMatch[1]) > 0) parts.push(`maintain ${maintainMatch[1]} days`);
             
             return parts.join(' + ');
         }
         
         // Simple deposit amounts with maintenance (different pattern)
-        const depositMaintainMatch = /deposit.*?\$?([\d,]+).*?maintain.*?(\d+)\s*days/i.exec(cleaned);
+        const depositMaintainMatch = /deposit.*?\$([\d,]+).*?maintain.*?(\d+)\s*days/i.exec(cleaned);
         if (depositMaintainMatch) {
             return `$${depositMaintainMatch[1]} deposit + maintain ${depositMaintainMatch[2]} days`;
         }
         
         // Simple deposit amounts
-        const simpleDepositMatch = /deposit.*?\$?([\d,]+)/i.exec(cleaned);
+        const simpleDepositMatch = /deposit.*?\$([\d,]+)/i.exec(cleaned);
         if (simpleDepositMatch) {
             return `$${simpleDepositMatch[1]} deposit`;
         }
         
         // Maintenance requirements (fallback)
-        const maintainMatch = /maintain.*?\$?([\d,]+).*?(\d+)\s*days/i.exec(cleaned);
+        const maintainMatch = /maintain.*?\$([\d,]+).*?(\d+)\s*days/i.exec(cleaned);
         if (maintainMatch) {
             return `Maintain $${maintainMatch[1]} for ${maintainMatch[2]} days`;
         }
@@ -479,12 +516,14 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/electronic/i, '')
             .replace(/within \d+ days/i, '')
             .replace(/from employer.*?benefits/i, '')
+            .replace(/meet both reqs/i, 'meet both requirements')
+            .replace(/for 0 days/i, '')
             .replace(/\s+/g, ' ')
             .trim();
         
         // Final length check - truncate if still too long
-        if (cleaned.length > 40) {
-            cleaned = cleaned.substring(0, 37) + '...';
+        if (cleaned.length > 50) {
+            cleaned = cleaned.substring(0, 47) + '...';
         }
         
         return cleaned || 'See requirements';
@@ -2107,25 +2146,38 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'unopened';
     };
 
+    // Global lock to prevent simultaneous API calls to the same offer
+    const offerUpdateLocks = new Set();
+    
     // Debounce status updates to prevent rapid successive calls
     let statusUpdateTimeout = null;
     
     const updateOfferStatus = async (id, statusKey) => {
-        // Clear any pending status update
-        if (statusUpdateTimeout) {
-            clearTimeout(statusUpdateTimeout);
+        // Check if this offer is already being updated
+        if (offerUpdateLocks.has(id)) {
+            console.log(`Offer ${id} is already being updated, skipping...`);
+            return;
         }
         
-        // Get current status before updating
-        const currentOffer = app.offers[id];
-        const currentStatus = getCurrentStatusKey(currentOffer);
+        // Lock this offer to prevent simultaneous updates
+        offerUpdateLocks.add(id);
         
-        // Only animate if status is actually changing
-        if (currentStatus !== statusKey) {
-            // Prevent multiple simultaneous updates
+        try {
+            // Clear any pending status update
             if (statusUpdateTimeout) {
-                return;
+                clearTimeout(statusUpdateTimeout);
             }
+            
+            // Get current status before updating
+            const currentOffer = app.offers[id];
+            const currentStatus = getCurrentStatusKey(currentOffer);
+            
+            // Only animate if status is actually changing
+            if (currentStatus !== statusKey) {
+                // Prevent multiple simultaneous updates
+                if (statusUpdateTimeout) {
+                    return;
+                }
             
             // Trigger sliding animation
             const statusDot = document.querySelector('.status-dropdown-trigger .status-dot');
@@ -2273,6 +2325,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error(`Error updating status:`, error);
             }
         }
+    } catch (error) {
+        console.error(`Error in updateOfferStatus:`, error);
+    } finally {
+        // Always unlock the offer when done
+        offerUpdateLocks.delete(id);
+    }
     };
 
     const deleteOffer = async (e) => {
