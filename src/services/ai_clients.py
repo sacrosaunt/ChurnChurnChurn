@@ -1,5 +1,10 @@
 import os
-import google.generativeai as genai
+try:
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+    genai = None
 from openai import OpenAI
 from src.utils.key_management import load_api_keys
 from src.utils.config import SHORT_PROMPT_MAX_TOKENS, LONG_PROMPT_MAX_TOKENS, CONTEXT_SIZE
@@ -52,32 +57,38 @@ def initialize_ai_clients():
     
     logger.info(f"📊 OpenAI status: {'Enabled' if OPENAI_ENABLED else 'Disabled'}")
 
-    # Configure Gemini
+    # Configure Gemini (disabled by default, prefer OpenAI)
     try:
-        if os.environ.get("GEMINI_API_KEY"):
-            logger.info("Configuring Gemini AI models...")
-            genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-            generation_config = {
-                "temperature": 0,
-                "top_p": 1,
-                "top_k": 1,
-                "max_output_tokens": 8192,  # Using LONG_PROMPT_MAX_TOKENS directly
-            }
+        # Disable Gemini by default to prevent logging issues and prefer OpenAI
+        logger.info("Gemini is disabled by default - using OpenAI fallback")
+        flash_model = None
+        pro_model = None
+        
+        # Uncomment below to re-enable Gemini if needed
+        # if os.environ.get("GEMINI_API_KEY"):
+        #     logger.info("Configuring Gemini AI models...")
+        #     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+        #     generation_config = {
+        #         "temperature": 0,
+        #         "top_p": 1,
+        #         "top_k": 1,
+        #         "max_output_tokens": 8192,  # Using LONG_PROMPT_MAX_TOKENS directly
+        #     }
 
-            flash_model = genai.GenerativeModel(
-                model_name="gemini-2.5-flash",
-                generation_config=generation_config
-            )
-            pro_model = genai.GenerativeModel(
-                model_name="gemini-2.5-pro",
-                generation_config=generation_config
-            )
-            logger.info("Gemini models configured successfully")
-        else:
-            # Silently disable Gemini when no API key is available
-            logger.info("No GEMINI_API_KEY found - Gemini features disabled")
-            flash_model = None
-            pro_model = None
+        #     flash_model = genai.GenerativeModel(
+        #         model_name="gemini-2.5-flash",
+        #         generation_config=generation_config
+        #     )
+        #     pro_model = genai.GenerativeModel(
+        #         model_name="gemini-2.5-pro",
+        #         generation_config=generation_config
+        #     )
+        #     logger.info("Gemini models configured successfully")
+        # else:
+        #     # Silently disable Gemini when no API key is available
+        #     logger.info("No GEMINI_API_KEY found - Gemini features disabled")
+        #     flash_model = None
+        #     pro_model = None
     except Exception as e:
         # Silently handle any Gemini configuration errors
         logger.error(f"Error configuring Gemini models: {e}")
@@ -93,7 +104,7 @@ def initialize_ai_clients():
 
 def call_gemini(prompt, model_instance, use_short_tokens=False, temperature=0):
     """Generic function to call a specific Gemini API model and return the text response."""
-    if not model_instance:
+    if not GEMINI_AVAILABLE or not model_instance:
         return "AI Model Not Configured"
     
     # Determine token limit based on prompt type
@@ -111,6 +122,8 @@ def call_gemini(prompt, model_instance, use_short_tokens=False, temperature=0):
             }
             
             # Create a temporary model with the specific token limit
+            if not GEMINI_AVAILABLE:
+                return "AI Error: Gemini not available"
             temp_model = genai.GenerativeModel(
                 model_name=model_instance.model_name,
                 generation_config=temp_config
@@ -133,7 +146,7 @@ def call_gemini(prompt, model_instance, use_short_tokens=False, temperature=0):
                 logger.info(f"Gemini API call successful using model: {model_instance.model_name}")
                 return cleaned_text
             else:
-                logger.warning(f"Gemini response from {model_instance.model_name} was empty or blocked (attempt {attempt + 1}/2). Full response:", response)
+                logger.warning(f"Gemini response from {model_instance.model_name} was empty or blocked (attempt {attempt + 1}/2). Full response: {response}")
                 if attempt == 0:
                     logger.info(f"Retrying... (attempt 2/2)")
                     continue
@@ -197,11 +210,11 @@ def is_banking_offer_page(content):
     --- TEXT END ---
     """
     
-    # Try Gemini first if available, otherwise fall back to OpenAI
-    if flash_model:
-        response = call_gemini(prompt, flash_model, use_short_tokens=True)
-    elif OPENAI_ENABLED:
+    # Try OpenAI first if available, otherwise fall back to Gemini
+    if OPENAI_ENABLED:
         response = call_ai(prompt, openai_model_default, use_short_tokens=True)
+    elif flash_model:
+        response = call_gemini(prompt, flash_model, use_short_tokens=True)
     else:
         logger.error("No AI models available for banking offer validation")
         return False

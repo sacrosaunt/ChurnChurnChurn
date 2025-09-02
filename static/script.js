@@ -163,6 +163,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return match ? parseFloat(match[1].replace(/,/g, '')) || 0 : 0;
     };
 
+    const getEffectiveBonusAmount = (offer) => {
+        const details = offer.details || {};
+        const bonusAmount = parseBonusAmount(details.bonus_to_be_received);
+        
+        // If the offer is marked as received and has a selected tier, use that tier's bonus
+        if (offer.user_controlled && offer.user_controlled.received && offer.user_controlled.selected_tier) {
+            const selectedTier = offer.user_controlled.selected_tier;
+            
+            // Handle "maximum" tier selection
+            if (selectedTier === 'maximum') {
+                return bonusAmount; // Return the main bonus amount for maximum tier
+            }
+            
+            // Handle regular tier selection
+            const tiers = parseTierData(details.bonus_tiers_detailed, details.total_deposit_by_tier);
+            if (tiers) {
+                const tierData = tiers.find(tier => tier.tier === selectedTier);
+                if (tierData && tierData.bonus) {
+                    return tierData.bonus;
+                }
+            }
+        }
+        
+        // Otherwise, use the main bonus amount
+        return bonusAmount;
+    };
+
     const API_URL = '/api/offers';
     const app = {
         // Views
@@ -554,30 +581,98 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const validateTierCompleteness = (offer) => {
+        const details = offer.details || {};
+        const maxBonus = parseBonusAmount(details.bonus_to_be_received);
+        const tiers = parseTierData(details.bonus_tiers_detailed, details.total_deposit_by_tier);
+        
+        if (!tiers || tiers.length === 0) {
+            return { isValid: true, message: null }; // Single tier or no tiers
+        }
+        
+        const totalTierBonus = tiers.reduce((sum, tier) => sum + (tier.bonus || 0), 0);
+        const difference = maxBonus - totalTierBonus;
+        
+        if (Math.abs(difference) < 10) { // Allow small rounding differences
+            return { isValid: true, message: null };
+        }
+        
+        if (difference > 0) {
+            return {
+                isValid: false,
+                message: `Missing ${difference > 0 ? difference : 0} in bonus tiers. Total tiers: $${totalTierBonus}, Maximum: $${maxBonus}`,
+                missingAmount: difference
+            };
+        }
+        
+        return { isValid: true, message: null };
+    };
+
     const shortenTierDescription = (description) => {
         if (!description) return description;
         
         // Keep the original description for pattern matching
         let cleaned = description.trim();
         
+        // If the description is already concise and specific (under 60 chars), preserve it
+        if (cleaned.length <= 60 && !/complete.*qualifying|meet.*requirements|other.*activities|qualifying.*activities/i.test(cleaned)) {
+            return cleaned;
+        }
+        
+        // Detect and reject vague descriptions
+        if (/complete.*qualifying|meet.*requirements|other.*activities|qualifying.*activities|see.*requirements|check.*requirements/i.test(cleaned)) {
+            return 'See offer details';
+        }
+        
         // Handle specific patterns to create meaningful, concise descriptions
         
-        // Direct deposit patterns
-        if (/direct deposit/i.test(cleaned)) {
+        // Complex direct deposit patterns with amounts and timeframes
+        const directDepositAmountMatch = /direct deposit.*?\$([\d,]+).*?(\d+)\s*days?/i.exec(cleaned);
+        if (directDepositAmountMatch) {
+            const amount = directDepositAmountMatch[1];
+            const days = directDepositAmountMatch[2];
+            return `Direct deposit $${amount} within ${days} days`;
+        }
+        
+        // Multiple direct deposits with specific counts and amounts
+        const multipleDepositsSpecificMatch = /(\d+)\s*direct deposits.*?\$([\d,]+).*?each/i.exec(cleaned);
+        if (multipleDepositsSpecificMatch) {
+            const count = multipleDepositsSpecificMatch[1];
+            const amount = multipleDepositsSpecificMatch[2];
+            return `${count} direct deposits $${amount}+ each`;
+        }
+        
+        // Direct deposit with balance maintenance
+        const directDepositMaintainMatch = /direct deposit.*?maintain.*?\$([\d,]+)/i.exec(cleaned);
+        if (directDepositMaintainMatch) {
+            const balance = directDepositMaintainMatch[1];
+            return `Direct deposit + maintain $${balance}`;
+        }
+        
+        // Simple direct deposit patterns
+        if (/direct deposit/i.test(cleaned) && !/\$/g.test(cleaned)) {
             return 'Set up direct deposit';
         }
         
+        // Recurring savings increases (like "$200/mo x 12")
+        const savingsIncreaseMatch = /increase.*?savings.*?\$([\d,]+)\/mo.*?(\d+)/i.exec(cleaned);
+        if (savingsIncreaseMatch) {
+            const monthlyAmount = savingsIncreaseMatch[1];
+            const months = savingsIncreaseMatch[2];
+            return `Increase savings $${monthlyAmount}/month for ${months} months`;
+        }
+        
         // Pattern like "$15K + maintain 90 days" or "$15,000 + maintain 90 days"
-        const dollarPlusMaintainMatch = /\$([\d,]+)K?\s*\+\s*maintain\s*(\d+)?\s*days?/i.exec(cleaned);
+        const dollarPlusMaintainMatch = /\$([\d,]+)K?\s*(?:deposit\s*)?\+?\s*maintain\s*(\d+)?\s*days?/i.exec(cleaned);
         if (dollarPlusMaintainMatch) {
             const amount = dollarPlusMaintainMatch[1];
             const days = dollarPlusMaintainMatch[2];
-            const numericAmount = amount.includes('K') ? parseInt(amount) * 1000 : parseInt(amount);
+            const numericAmount = amount.includes('K') ? parseInt(amount.replace(',', '')) * 1000 : parseInt(amount.replace(',', ''));
             
             if (days && parseInt(days) > 0) {
-                return `$${numericAmount.toLocaleString()} + maintain ${days} days`;
+                return `Deposit $${numericAmount.toLocaleString()} + maintain ${days} days`;
             } else if (numericAmount > 100) {
-                return `$${numericAmount.toLocaleString()} + maintain balance`;
+                return `Deposit $${numericAmount.toLocaleString()} + maintain balance`;
             } else {
                 return 'Maintain minimum balance';
             }
@@ -592,43 +687,77 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // If it's a small number like $15, it's likely meant to be $15K
             if (numericAmount <= 50 && parseInt(days) > 30) {
-                return `$${(numericAmount * 1000).toLocaleString()} + maintain ${days} days`;
+                return `Deposit $${(numericAmount * 1000).toLocaleString()} + maintain ${days} days`;
             } else if (numericAmount > 100) {
-                return `$${numericAmount.toLocaleString()} + maintain ${days} days`;
+                return `Deposit $${numericAmount.toLocaleString()} + maintain ${days} days`;
             } else {
                 return 'Maintain minimum balance';
             }
         }
         
-        // Complex multi-account requirements
+        // Complex multi-account requirements with more detail
         if (/open both.*accounts/i.test(cleaned)) {
             // Extract key requirements
             const hasDirectDeposit = /direct deposit/i.test(cleaned);
             const depositMatch = cleaned.match(/\$([\d,]+)K?/);
             const maintainMatch = /maintain.*?(\d+)\s*days/i.exec(cleaned);
+            const maintainBalanceMatch = /maintain.*?\$([\d,]+)/i.exec(cleaned);
+            const meetBothMatch = /meet both/i.test(cleaned);
             
             let parts = ['Open both accounts'];
-            if (hasDirectDeposit) parts.push('direct deposit');
-            if (depositMatch) {
-                const amount = depositMatch[1];
-                const numericAmount = amount.includes('K') ? parseInt(amount) * 1000 : parseInt(amount);
-                if (numericAmount > 100) parts.push(`$${numericAmount.toLocaleString()} deposit`);
+            
+            if (meetBothMatch) {
+                parts.push('meet all requirements');
+            } else {
+                if (hasDirectDeposit) parts.push('set up direct deposit');
+                if (depositMatch) {
+                    const amount = depositMatch[1];
+                    const numericAmount = amount.includes('K') ? parseInt(amount.replace(',', '')) * 1000 : parseInt(amount.replace(',', ''));
+                    if (numericAmount > 100) parts.push(`deposit $${numericAmount.toLocaleString()}`);
+                }
+                if (maintainMatch && parseInt(maintainMatch[1]) > 0) parts.push(`maintain ${maintainMatch[1]} days`);
+                if (maintainBalanceMatch) parts.push(`maintain $${maintainBalanceMatch[1]}`);
             }
-            if (maintainMatch && parseInt(maintainMatch[1]) > 0) parts.push(`maintain ${maintainMatch[1]} days`);
             
             return parts.join(' + ');
+        }
+        
+        // Multiple direct deposits pattern
+        const multipleDepositsMatch = /(\d+)\s*direct deposits.*?\$([\d,]+)/i.exec(cleaned);
+        if (multipleDepositsMatch) {
+            const count = multipleDepositsMatch[1];
+            const amount = multipleDepositsMatch[2];
+            return `${count} direct deposits of $${amount}+ each`;
         }
         
         // Simple deposit amounts with maintenance (different pattern)
         const depositMaintainMatch = /deposit.*?\$([\d,]+).*?maintain.*?(\d+)\s*days/i.exec(cleaned);
         if (depositMaintainMatch) {
-            return `$${depositMaintainMatch[1]} deposit + maintain ${depositMaintainMatch[2]} days`;
+            return `Deposit $${depositMaintainMatch[1]} + maintain ${depositMaintainMatch[2]} days`;
+        }
+        
+        // Simple deposit amounts with timeframe
+        const depositTimeMatch = /deposit.*?\$([\d,]+).*?(\d+)\s*days/i.exec(cleaned);
+        if (depositTimeMatch) {
+            return `Deposit $${depositTimeMatch[1]} within ${depositTimeMatch[2]} days`;
+        }
+        
+        // Specific deposit amounts with exact timeframes
+        const exactDepositTimeMatch = /deposit.*?\$([\d,]+).*?within.*?(\d+)\s*days/i.exec(cleaned);
+        if (exactDepositTimeMatch) {
+            return `Deposit $${exactDepositTimeMatch[1]} within ${exactDepositTimeMatch[2]} days`;
+        }
+        
+        // Balance maintenance with specific timeframes
+        const balanceMaintainTimeMatch = /maintain.*?\$([\d,]+).*?(\d+)\s*days/i.exec(cleaned);
+        if (balanceMaintainTimeMatch) {
+            return `Maintain $${balanceMaintainTimeMatch[1]} for ${balanceMaintainTimeMatch[2]} days`;
         }
         
         // Simple deposit amounts
         const simpleDepositMatch = /deposit.*?\$([\d,]+)/i.exec(cleaned);
         if (simpleDepositMatch) {
-            return `$${simpleDepositMatch[1]} deposit`;
+            return `Deposit $${simpleDepositMatch[1]}`;
         }
         
         // Maintenance requirements (fallback)
@@ -637,29 +766,73 @@ document.addEventListener('DOMContentLoaded', () => {
             return `Maintain $${maintainMatch[1]} for ${maintainMatch[2]} days`;
         }
         
-        // If none of the patterns match, try to create a generic short description
+        // Account opening + simple requirement
+        if (/open.*account.*direct deposit/i.test(cleaned)) {
+            return 'Open account + direct deposit';
+        }
+        
+        // Account opening with specific requirements
+        const openAccountMatch = /open.*?(\w+).*?account.*?(\w+)/i.exec(cleaned);
+        if (openAccountMatch) {
+            const accountType = openAccountMatch[1];
+            const requirement = openAccountMatch[2];
+            return `Open ${accountType} account + ${requirement}`;
+        }
+        
+        // Cash back percentages
+        const cashbackMatch = /(\d+)%.*?cash back/i.exec(cleaned);
+        if (cashbackMatch) {
+            return `${cashbackMatch[1]}% cash back`;
+        }
+        
+        // Qualifying purchases
+        if (/qualifying purchases/i.test(cleaned)) {
+            return 'Make qualifying purchases';
+        }
+        
+        // Handle specific patterns that should be preserved but made more readable
         cleaned = cleaned
+            .replace(/open checking \+ direct deposit/i, 'Open checking + direct deposit')
+            .replace(/open savings \+ direct deposit/i, 'Open savings + direct deposit')
             .replace(/At least (\d+|\w+) qualifying/i, '')
             .replace(/electronic/i, '')
-            .replace(/within \d+ days/i, '')
             .replace(/from employer.*?benefits/i, '')
-            .replace(/meet both reqs/i, 'meet both requirements')
+            .replace(/meet both reqs/i, 'meet all requirements')
             .replace(/for 0 days/i, '')
+            .replace(/set up/i, 'setup')
+            .replace(/complete.*qualifying.*activities/i, 'See offer details')
+            .replace(/meet.*requirements/i, 'See offer details')
+            .replace(/other.*qualifying.*activities/i, 'See offer details')
             .replace(/\s+/g, ' ')
             .trim();
         
-        // Final length check - truncate if still too long
-        if (cleaned.length > 50) {
-            cleaned = cleaned.substring(0, 47) + '...';
+        // Final length check - truncate if still too long but preserve key info
+        if (cleaned.length > 80) {
+            // Try to preserve the most important part (amounts and key actions)
+            const importantParts = cleaned.match(/\$([\d,]+)|direct deposit|open|maintain|\d+\s*days?|cash back|qualifying|purchases/gi);
+            if (importantParts && importantParts.length > 0) {
+                cleaned = importantParts.slice(0, 5).join(' + ');
+                if (cleaned.length > 80) {
+                    cleaned = cleaned.substring(0, 77) + '...';
+                }
+            } else {
+                cleaned = cleaned.substring(0, 77) + '...';
+            }
         }
         
         return cleaned || 'See requirements';
     };
 
-    const createTierDisplay = (tiers, displayBonus) => {
+    const createTierDisplay = (tiers, displayBonus, selectedTier = null, offer = null) => {
         if (!tiers || tiers.length <= 1) {
             return '';
         }
+
+        // Get main bonus amount from the offer details
+        const details = offer?.details || {};
+        const mainBonusAmount = parseBonusAmount(details.bonus_to_be_received);
+        const tierSum = tiers.reduce((sum, t) => sum + t.bonus, 0);
+        const hasMaximumTier = mainBonusAmount > tierSum + 10; // Allow small rounding differences
 
         const tierItems = tiers.map(tier => {
             // Format deposit requirement based on whether it's numeric or descriptive
@@ -676,10 +849,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 depositText = shortenTierDescription(String(tier.deposit));
             }
 
+            const isSelected = selectedTier === tier.tier;
+            const selectedClass = isSelected ? 'bg-green-50 border-green-200' : '';
+            const selectedIcon = isSelected ? '<svg class="w-4 h-4 text-green-600 ml-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>' : '';
+
             return `
-                <div class="py-2 border-b border-gray-100 last:border-b-0">
+                <div class="py-2 border-b border-gray-100 last:border-b-0 ${selectedClass} rounded px-2">
                     <div class="flex justify-between items-start mb-1">
-                        <span class="text-xs font-medium text-gray-700">Tier ${tier.tier}</span>
+                        <div class="flex items-center">
+                            <span class="text-xs font-medium text-gray-700">Tier ${tier.tier}</span>
+                            ${selectedIcon}
+                        </div>
                         <span class="text-xs font-semibold text-green-600">$${tier.bonus ? tier.bonus.toLocaleString() : 'N/A'}</span>
                     </div>
                     <div class="text-xs text-gray-500">
@@ -689,15 +869,47 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }).join('');
 
+        // Add maximum tier option if it exists
+        const maximumTierItem = hasMaximumTier ? `
+            <div class="py-2 border-b border-gray-100 last:border-b-0 ${selectedTier === 'maximum' ? 'bg-green-50 border-green-200' : ''} rounded px-2">
+                <div class="flex justify-between items-start mb-1">
+                    <div class="flex items-center">
+                        <span class="text-xs font-medium text-gray-700">Maximum Bonus</span>
+                        ${selectedTier === 'maximum' ? '<svg class="w-4 h-4 text-green-600 ml-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>' : ''}
+                    </div>
+                    <span class="text-xs font-semibold text-green-600">$${mainBonusAmount.toLocaleString()}</span>
+                </div>
+                <div class="text-xs text-gray-500">Complete all requirements for maximum bonus</div>
+            </div>
+        ` : '';
+
+        const selectedText = selectedTier ? 
+            (selectedTier === 'maximum' ? ' (Maximum Bonus selected)' : ` (Tier ${selectedTier} selected)`) : '';
+
+        // Check for tier completeness
+        const validation = offer ? validateTierCompleteness(offer) : { isValid: true, message: null };
+        const validationWarning = !validation.isValid ? `
+            <div class="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                <div class="flex items-center">
+                    <svg class="w-4 h-4 text-yellow-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="text-xs text-yellow-800">${validation.message}</span>
+                </div>
+            </div>
+        ` : '';
+
         return `
             <div class="bg-white rounded-lg shadow-md border border-gray-200 p-4 w-full lg:w-80">
                 <div class="flex items-center justify-between mb-3">
-                    <span class="text-sm font-semibold text-gray-800">Tier Options</span>
+                    <span class="text-sm font-semibold text-gray-800">Tier Options${selectedText}</span>
                     <span class="text-xs font-medium text-green-600">Up to ${formatValue(displayBonus, 'currency')}</span>
                 </div>
                 <div class="space-y-2 max-h-64 overflow-y-auto">
                     ${tierItems}
+                    ${maximumTierItem}
                 </div>
+                ${validationWarning}
             </div>
         `;
     };
@@ -764,8 +976,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     comparison = b.id - a.id; // Default: newest first
                     break;
                 case 'bonus':
-                    const bonusA = parseBonusAmount(a.details?.bonus_to_be_received);
-                    const bonusB = parseBonusAmount(b.details?.bonus_to_be_received);
+                    const bonusA = getEffectiveBonusAmount(a);
+                    const bonusB = getEffectiveBonusAmount(b);
                     comparison = bonusB - bonusA; // Default: highest first
                     break;
                 case 'expiration':
@@ -857,13 +1069,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Calculate totals for all offers
         sortedOffers.forEach(offer => {
-            const details = offer.details || {};
-            const bonusAmount = parseBonusAmount(details.bonus_to_be_received);
-            if (!isNaN(bonusAmount)) {
+            const effectiveBonusAmount = getEffectiveBonusAmount(offer);
+            if (!isNaN(effectiveBonusAmount)) {
                 if (offer.user_controlled && offer.user_controlled.received) {
-                    totalClaimed += bonusAmount;
+                    totalClaimed += effectiveBonusAmount;
                 } else if (offer.user_controlled && offer.user_controlled.deposited) {
-                    totalPending += bonusAmount;
+                    totalPending += effectiveBonusAmount;
                 }
             }
         });
@@ -905,8 +1116,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Sort offers within each status group by bonus amount (descending)
         Object.keys(groupedOffers).forEach(statusKey => {
             groupedOffers[statusKey].offers.sort((a, b) => {
-                const bonusA = parseBonusAmount(a.details?.bonus_to_be_received);
-                const bonusB = parseBonusAmount(b.details?.bonus_to_be_received);
+                const bonusA = getEffectiveBonusAmount(a);
+                const bonusB = getEffectiveBonusAmount(b);
                 return bonusB - bonusA; // Descending order (highest bonus first)
             });
         });
@@ -970,7 +1181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Defensive check for offer.details
         const details = offer.details || {};
         
-        const bonusAmount = parseBonusAmount(details.bonus_to_be_received);
+        const effectiveBonusAmount = getEffectiveBonusAmount(offer);
 
         // Parse tier information for tile view
         const tiers = parseTierData(details.bonus_tiers_detailed, details.total_deposit_by_tier);
@@ -979,7 +1190,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // For sorting: use the main bonus amount (total maximum)
         // For display: use the main bonus amount unless it's significantly different from tier sum
         const tierSum = tiers ? tiers.reduce((sum, t) => sum + t.bonus, 0) : 0;
-        const displayBonus = hasMultipleTiers && Math.abs(tierSum - bonusAmount) <= 10 ? tierSum : bonusAmount;
+        const displayBonus = hasMultipleTiers && Math.abs(tierSum - effectiveBonusAmount) <= 10 ? tierSum : effectiveBonusAmount;
 
         tile.innerHTML = `
             <div class="flex flex-col h-full">
@@ -1497,6 +1708,10 @@ Tips:
         // For display: use the main bonus amount unless it's significantly different from tier sum
         const tierSum = tiers ? tiers.reduce((sum, t) => sum + t.bonus, 0) : 0;
         const displayBonus = hasMultipleTiers && Math.abs(tierSum - bonusAmount) <= 10 ? tierSum : bonusAmount;
+        
+        // Check if a tier has been selected for this offer
+        const selectedTier = offer.user_controlled && offer.user_controlled.selected_tier;
+        const selectedTierData = selectedTier && tiers ? tiers.find(tier => tier.tier === selectedTier) : null;
 
         app.detailView.innerHTML = `
             <div class="detail-layout">
@@ -1550,7 +1765,7 @@ Tips:
                 <!-- Mobile status + tier panel (top) -->
                 <div class="block lg:hidden space-y-4">
                     ${createStatusDropdown(offer)}
-                    ${hasMultipleTiers ? createTierDisplay(tiers, displayBonus) : ''}
+                    ${hasMultipleTiers ? createTierDisplay(tiers, displayBonus, selectedTier, offer) : ''}
                 </div>
                 ${offer.status === 'processing' ? `<div class="bg-white p-6 rounded-lg shadow-md">
                      ${createStatusSelector(offer, initialWidth)}
@@ -1619,7 +1834,7 @@ Tips:
         <!-- Sidebar (desktop only) -->
         <div class="hidden lg:block relative space-y-4">
             ${createStatusDropdown(offer)}
-            ${hasMultipleTiers ? createTierDisplay(tiers, displayBonus) : ''}
+            ${hasMultipleTiers ? createTierDisplay(tiers, displayBonus, selectedTier, offer) : ''}
         </div>
     </div>
         `;
@@ -1744,7 +1959,7 @@ Tips:
                 e.stopPropagation();
                 
                 // Show progress and hide button
-                console.log('[rescrape-debug] metric tile: click refresh', { offerId, fieldName, t: Date.now() });
+
                 progressDiv.classList.remove('hidden');
                 refreshButton.style.display = 'none';
                 // Track active refresh so overlay persists across re-renders
@@ -1764,13 +1979,13 @@ Tips:
                 
                 // Update text for step 1 (rescraping)
                 stepText.textContent = 'Rescraping';
-                console.log('[rescrape-debug] metric tile: show overlay + set Rescraping');
+
                 
                 try {
                     // Grace period to avoid race where backend hasn't set refresh_status yet
                     const refreshStartTime = Date.now();
                     let seenRefreshStatus = false;
-                    console.log('[rescrape-debug] metric tile: POST /refresh start');
+
                     const response = await fetch(`${API_URL}/${offerId}/refresh`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1781,19 +1996,15 @@ Tips:
                         const errorData = await response.json().catch(() => ({}));
                         throw new Error(errorData.error || `Refresh failed (HTTP ${response.status})`);
                     }
-                    console.log('[rescrape-debug] metric tile: POST /refresh ok');
+
                     
                     // Poll for updates with progress tracking
                     const pollForUpdate = async () => {
                         try {
-                            console.log('[rescrape-debug] metric tile: GET offer start');
+
                             const offerResponse = await fetch(`${API_URL}/${offerId}`);
                             const updatedOffer = await offerResponse.json();
-                            console.log('[rescrape-debug] metric tile: GET offer ok', {
-                                hasRefreshStatus: !!(updatedOffer.refresh_status && updatedOffer.refresh_status[fieldName]),
-                                refreshStatus: updatedOffer.refresh_status && updatedOffer.refresh_status[fieldName],
-                                dt: Date.now() - refreshStartTime
-                            });
+
                             
                             if (updatedOffer.refresh_status && updatedOffer.refresh_status[fieldName]) {
                                 seenRefreshStatus = true;
@@ -1802,15 +2013,15 @@ Tips:
                                 if (status === 'rescraping') {
                                     stepText.textContent = 'Rescraping';
                                     window.app.activeRefreshes[activeKey_metric] = { label: 'Rescraping', startTime: refreshStartTime };
-                                    console.log('[rescrape-debug] metric tile: status rescraping');
+
                                 } else if (status === 'querying') {
                                     stepText.textContent = 'Querying';
                                     window.app.activeRefreshes[activeKey_metric] = { label: 'Querying', startTime: refreshStartTime };
-                                    console.log('[rescrape-debug] metric tile: status querying');
+
                                 } else if (status === 'consensus') {
                                     stepText.textContent = 'Consensus';
                                     window.app.activeRefreshes[activeKey_metric] = { label: 'Consensus', startTime: refreshStartTime };
-                                    console.log('[rescrape-debug] metric tile: status consensus');
+
                                 }
                                 
                                 // Check for value changes and animate immediately
@@ -1878,7 +2089,7 @@ Tips:
                                 // Continue polling every 500ms during refresh
                                 setTimeout(pollForUpdate, 500);
                                                             } else {
-                                    console.log('[rescrape-debug] metric tile: no refresh_status on GET', { dt: Date.now() - refreshStartTime, seenRefreshStatus });
+
                                     // If we haven't seen any refresh status yet, keep polling briefly
                                     if (!seenRefreshStatus && (Date.now() - refreshStartTime) < 2000) {
                                         setTimeout(pollForUpdate, 200);
@@ -1889,7 +2100,7 @@ Tips:
                                         // Complete - show completion state for a moment
                                         stepText.textContent = 'Complete!';
                                         window.app.activeRefreshes[activeKey_metric] = { label: 'Complete!', startTime: refreshStartTime };
-                                        console.log('[rescrape-debug] metric tile: mark complete + renderDetailView soon');
+
 
                                         const finalUpdate = () => {
                                             // Check for any values that changed during processing
@@ -1964,7 +2175,7 @@ Tips:
                             stepText.textContent = 'Error';
                             
                             setTimeout(() => {
-                                console.log('[rescrape-debug] metric tile: error -> hide overlay');
+
                                 // Stop the spinner animation
                                 const oldSpinner = tile.querySelector('.spinner-continuous');
                                 if (oldSpinner && oldSpinner.dataset.spinnerId) {
@@ -1984,7 +2195,7 @@ Tips:
                     
                 } catch (error) {
                     console.error('Error refreshing field:', error);
-                    console.log('[rescrape-debug] metric tile: POST error -> hide overlay');
+
                     // Stop the spinner animation
                     const oldSpinner = tile.querySelector('.spinner-continuous');
                     if (oldSpinner && oldSpinner.dataset.spinnerId) {
@@ -2028,7 +2239,7 @@ Tips:
                 e.stopPropagation();
                 
                 // Show progress and hide button
-                console.log('[rescrape-debug] considerations: click refresh', { offerId, fieldName, t: Date.now() });
+
                 progressDiv.classList.remove('hidden');
                 refreshButton.style.display = 'none';
                 // Track active refresh so overlay persists across re-renders
@@ -2048,13 +2259,13 @@ Tips:
                 
                 // Update text for step 1 (rescraping)
                 stepText.textContent = 'Starting...';
-                console.log('[rescrape-debug] considerations: show overlay + set Starting');
+
                 
                 try {
                     // Grace period to avoid race where backend hasn't set refresh_status yet
                     const refreshStartTime = Date.now();
                     let seenRefreshStatus = false;
-                    console.log('[rescrape-debug] considerations: POST /refresh start');
+
                     const response = await fetch(`${API_URL}/${offerId}/refresh`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -2069,14 +2280,10 @@ Tips:
                     // Poll for updates with progress tracking
                     const pollForUpdate = async () => {
                         try {
-                            console.log('[rescrape-debug] considerations: GET offer start');
+
                             const offerResponse = await fetch(`${API_URL}/${offerId}`);
                             const updatedOffer = await offerResponse.json();
-                            console.log('[rescrape-debug] considerations: GET offer ok', {
-                                hasRefreshStatus: !!(updatedOffer.refresh_status && updatedOffer.refresh_status[fieldName]),
-                                refreshStatus: updatedOffer.refresh_status && updatedOffer.refresh_status[fieldName],
-                                dt: Date.now() - refreshStartTime
-                            });
+
                             
                             if (updatedOffer.refresh_status && updatedOffer.refresh_status[fieldName]) {
                                 seenRefreshStatus = true;
@@ -2085,15 +2292,15 @@ Tips:
                                 if (status === 'rescraping') {
                                     stepText.textContent = 'Rescraping';
                                     window.app.activeRefreshes[activeKey_cons] = { label: 'Rescraping', startTime: refreshStartTime };
-                                    console.log('[rescrape-debug] considerations: status rescraping');
+
                                 } else if (status === 'querying') {
                                     stepText.textContent = 'Querying';
                                     window.app.activeRefreshes[activeKey_cons] = { label: 'Querying', startTime: refreshStartTime };
-                                    console.log('[rescrape-debug] considerations: status querying');
+
                                 } else if (status === 'consensus') {
                                     stepText.textContent = 'Consensus';
                                     window.app.activeRefreshes[activeKey_cons] = { label: 'Consensus', startTime: refreshStartTime };
-                                    console.log('[rescrape-debug] considerations: status consensus');
+
                                 }
                                 
                                 // Check for value changes and animate immediately
@@ -2129,7 +2336,7 @@ Tips:
                                 // Continue polling every 500ms during refresh
                                 setTimeout(pollForUpdate, 500);
                                                             } else {
-                                    console.log('[rescrape-debug] considerations: no refresh_status on GET', { dt: Date.now() - refreshStartTime, seenRefreshStatus });
+
                                     // If we haven't seen any refresh status yet, keep polling briefly
                                     if (!seenRefreshStatus && (Date.now() - refreshStartTime) < 2000) {
                                         setTimeout(pollForUpdate, 200);
@@ -2148,7 +2355,7 @@ Tips:
                                                 refreshButton.style.opacity = '0';
                                             } catch (_) {}
                                         }, 600);
-                                        console.log('[rescrape-debug] considerations: mark complete + renderDetailView soon');
+
 
                                         const finalUpdate = () => {
                                             // Check for any values that changed during processing
@@ -2224,7 +2431,7 @@ Tips:
                             stepText.textContent = 'Error';
                             
                             setTimeout(() => {
-                                console.log('[rescrape-debug] considerations: error -> hide overlay');
+
                                 // Stop the spinner animation
                                 const oldSpinner = container.querySelector('.spinner-continuous');
                                 if (oldSpinner && oldSpinner.dataset.spinnerId) {
@@ -2244,7 +2451,7 @@ Tips:
                     
                 } catch (error) {
                     console.error('Error refreshing field:', error);
-                    console.log('[rescrape-debug] considerations: POST error -> hide overlay');
+
                     // Stop the spinner animation
                     const oldSpinner = container.querySelector('.spinner-continuous');
                     if (oldSpinner && oldSpinner.dataset.spinnerId) {
@@ -2743,10 +2950,144 @@ Tips:
     // Debounce status updates to prevent rapid successive calls
     let statusUpdateTimeout = null;
     
+    const showTierSelectionModal = (tiers, offer) => {
+        return new Promise((resolve) => {
+            const details = offer.details || {};
+            const mainBonusAmount = parseBonusAmount(details.bonus_to_be_received);
+            const tierSum = tiers.reduce((sum, t) => sum + t.bonus, 0);
+            
+            // Check if main bonus amount is higher than tier sum (indicating a maximum tier)
+            const hasMaximumTier = mainBonusAmount > tierSum + 10; // Allow small rounding differences
+            
+            // Create tier options
+            const tierOptions = tiers.map(tier => {
+                // Format deposit requirement based on whether it's numeric or descriptive
+                let depositText;
+                if (tier.depositDescription) {
+                    depositText = shortenTierDescription(tier.depositDescription);
+                } else if (tier.deposit === 0) {
+                    depositText = "See requirements";
+                } else if (typeof tier.deposit === 'number') {
+                    depositText = `$${tier.deposit.toLocaleString()} deposit`;
+                } else {
+                    depositText = shortenTierDescription(String(tier.deposit));
+                }
+                
+                return `
+                    <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input type="radio" name="selected-tier" value="${tier.tier}" class="mr-3 text-blue-600 focus:ring-blue-500">
+                        <div class="flex-1">
+                            <div class="flex justify-between items-start mb-1">
+                                <span class="text-sm font-medium text-gray-700">Tier ${tier.tier}</span>
+                                <span class="text-sm font-semibold text-green-600">$${tier.bonus ? tier.bonus.toLocaleString() : 'N/A'}</span>
+                            </div>
+                            <div class="text-xs text-gray-500">${depositText}</div>
+                        </div>
+                    </label>
+                `;
+            }).join('');
+            
+            // Add maximum tier option if it exists
+            const maximumTierOption = hasMaximumTier ? `
+                <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer bg-blue-50 border-blue-200">
+                    <input type="radio" name="selected-tier" value="maximum" class="mr-3 text-blue-600 focus:ring-blue-500">
+                    <div class="flex-1">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="text-sm font-medium text-gray-700">Maximum Bonus</span>
+                            <span class="text-sm font-semibold text-green-600">$${mainBonusAmount.toLocaleString()}</span>
+                        </div>
+                        <div class="text-xs text-gray-500">Complete all requirements for maximum bonus</div>
+                    </div>
+                </label>
+            ` : '';
+            
+            // Create modal HTML
+            const modalHTML = `
+                <div id="tier-selection-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+                        <div class="p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-semibold text-gray-900">Select Completed Tier</h3>
+                                <button id="close-tier-modal" class="text-gray-400 hover:text-gray-600">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-4">
+                                This offer has multiple bonus tiers. Please select which tier you completed to receive the correct bonus amount.
+                            </p>
+                            <div class="space-y-3">
+                                ${tierOptions}
+                                ${maximumTierOption}
+                            </div>
+                            <div class="flex justify-end space-x-3 mt-6">
+                                <button id="cancel-tier-selection" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                                    Cancel
+                                </button>
+                                <button id="confirm-tier-selection" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                    Confirm
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add modal to DOM
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            
+            const modal = document.getElementById('tier-selection-modal');
+            const closeBtn = document.getElementById('close-tier-modal');
+            const cancelBtn = document.getElementById('cancel-tier-selection');
+            const confirmBtn = document.getElementById('confirm-tier-selection');
+            const radioButtons = document.querySelectorAll('input[name="selected-tier"]');
+            
+            // Handle radio button selection
+            radioButtons.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    confirmBtn.disabled = false;
+                });
+            });
+            
+            // Handle close/cancel
+            const closeModal = () => {
+                modal.remove();
+                resolve(null);
+            };
+            
+            closeBtn.addEventListener('click', closeModal);
+            cancelBtn.addEventListener('click', closeModal);
+            
+            // Handle confirm
+            confirmBtn.addEventListener('click', () => {
+                const selectedTier = document.querySelector('input[name="selected-tier"]:checked');
+                if (selectedTier) {
+                    modal.remove();
+                    resolve(parseInt(selectedTier.value));
+                }
+            });
+            
+            // Close on outside click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+            
+            // Close on escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeModal();
+                }
+            });
+        });
+    };
+    
     const updateOfferStatus = async (id, statusKey, triggerElement = null) => {
         // Check if this offer is already being updated
         if (offerUpdateLocks.has(id)) {
-            console.log(`Offer ${id} is already being updated, skipping...`);
+
             return;
         }
         
@@ -2764,53 +3105,95 @@ Tips:
             const currentOffer = app.offers[id];
             const currentStatus = getCurrentStatusKey(currentOffer);
             
+            // Check if this is marking as received and has multiple tiers
+            if (statusKey === 'received') {
+                const details = currentOffer.details || {};
+                const tiers = parseTierData(details.bonus_tiers_detailed, details.total_deposit_by_tier);
+                const hasMultipleTiers = tiers && tiers.length > 1;
+                
+                if (hasMultipleTiers) {
+                    // Show tier selection modal
+                    const selectedTier = await showTierSelectionModal(tiers, currentOffer);
+                    if (selectedTier === null) {
+                        // User cancelled
+                        offerUpdateLocks.delete(id);
+                        return;
+                    }
+                    // Store the selected tier
+                    await fetch(`${API_URL}/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ field: 'selected_tier', value: selectedTier })
+                    });
+                }
+            }
+            
             // Only animate if status is actually changing
             if (currentStatus !== statusKey) {
-                console.log('Status is changing, attempting animation...', { currentStatus, statusKey, triggerElement: !!triggerElement });
+
             
             // Trigger sliding animation
             const statusDot = triggerElement ? triggerElement.querySelector('.status-dot') : document.querySelector('.status-dropdown-trigger .status-dot');
             const statusLabel = triggerElement ? triggerElement.querySelector('.status-label') : document.querySelector('.status-dropdown-trigger .status-label');
             
-            console.log('Found elements:', { statusDot: !!statusDot, statusLabel: !!statusLabel });
+
             
             if (statusDot && statusLabel) {
-                console.log('Adding slide-out animation classes');
-                // Add slide out animation for label only, pulse for dot
-                statusLabel.classList.add('status-slide-out');
+
                 
-                // Wait for slide out to complete, then update and slide in
-                statusUpdateTimeout = setTimeout(async () => {
-                    const updates = {
-                        opened: false,
-                        deposited: false,
-                        received: false,
-                    };
+                // Do the API request first, then handle animations
+                const updates = {
+                    opened: false,
+                    deposited: false,
+                    received: false,
+                };
 
-                    if (statusKey === 'opened') {
-                        updates.opened = true;
-                    } else if (statusKey === 'deposited') {
-                        updates.opened = true;
-                        updates.deposited = true;
-                    } else if (statusKey === 'received') {
-                        updates.opened = true;
-                        updates.deposited = true;
-                        updates.received = true;
+                if (statusKey === 'opened') {
+                    updates.opened = true;
+                } else if (statusKey === 'deposited') {
+                    updates.opened = true;
+                    updates.deposited = true;
+                } else if (statusKey === 'received') {
+                    updates.opened = true;
+                    updates.deposited = true;
+                    updates.received = true;
+                }
+
+                try {
+                    // Make sequential API calls to prevent corruption
+                    for (const [field, value] of Object.entries(updates)) {
+                        await fetch(`${API_URL}/${id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ field, value })
+                        });
                     }
+                    
+                    // Clear selected tier if changing from received to any other status
+                    if (currentStatus === 'received' && statusKey !== 'received') {
+                        await fetch(`${API_URL}/${id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ field: 'selected_tier', value: null })
+                        });
 
-                    try {
-                        // Make sequential API calls to prevent corruption
-                        for (const [field, value] of Object.entries(updates)) {
-                            await fetch(`${API_URL}/${id}`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ field, value })
-                            });
-                        }
-                        const response = await fetch(`${API_URL}/${id}`);
-                        const updatedOffer = await response.json();
-                        app.offers[id] = updatedOffer;
                         
+                        // Immediately update the offer object to reflect the cleared tier
+                        if (app.offers[id]) {
+                            app.offers[id].user_controlled.selected_tier = null;
+                        }
+                    }
+                    
+                    const response = await fetch(`${API_URL}/${id}`);
+                    const updatedOffer = await response.json();
+                    app.offers[id] = updatedOffer;
+                    
+                    // Now do the smooth animation sequence
+                    // First, slide out the current status
+                    statusLabel.classList.add('status-slide-out');
+                    
+                    // Wait for slide out to complete, then update content and slide in
+                    setTimeout(() => {
                         // Update the UI with new status
                         const newStatus = getCurrentStatusKey(updatedOffer);
                         const statuses = [
@@ -2858,27 +3241,53 @@ Tips:
                                 }
                             });
                             
-                            // Add slide in animation for label and pulse for dot
-                            statusLabel.classList.remove('status-slide-out');
-                            statusDot.classList.add('status-dot-pulse');
-                            statusLabel.classList.add('status-slide-in');
+                            // Small delay to ensure smooth transition before slide-in
+                            setTimeout(() => {
+                                // Now slide in the new status and pulse the dot
+                                statusLabel.classList.remove('status-slide-out');
+                                statusDot.classList.add('status-dot-pulse');
+                                statusLabel.classList.add('status-slide-in');
+                            }, 50);
                             
                             // Clean up animation classes after completion
                             setTimeout(() => {
-                                statusDot.classList.remove('status-dot-pulse');
                                 statusLabel.classList.remove('status-slide-in');
-                                // Clear the timeout flag
-                                statusUpdateTimeout = null;
-                            }, 300);
+                            }, 300); // 250ms + 50ms delay
+                            
+                            // Clean up pulse animation after it completes
+                            setTimeout(() => {
+                                statusDot.classList.remove('status-dot-pulse');
+                            }, 550); // 500ms + 50ms delay
+                            
+                            // Re-render the detail view to update tier display and other UI elements
+                            renderDetailView(updatedOffer);
+                            
+                            // Show visual feedback if tier was cleared
+                            if (currentStatus === 'received' && statusKey !== 'received') {
+                                // Add a brief flash to indicate tier was cleared
+                                setTimeout(() => {
+                                    const tierDisplays = document.querySelectorAll('.bg-white.rounded-lg.shadow-md.border.border-gray-200.p-4');
+                                    tierDisplays.forEach(display => {
+                                        if (display.textContent.includes('Tier Options')) {
+                                            display.style.transition = 'all 0.3s ease';
+                                            display.style.backgroundColor = '#fef3c7'; // Light yellow flash
+                                            display.style.borderColor = '#f59e0b'; // Amber border
+                                            setTimeout(() => {
+                                                display.style.backgroundColor = '';
+                                                display.style.borderColor = '';
+                                            }, 800);
+                                        }
+                                    });
+                                }, 100); // Small delay to ensure re-render is complete
+                            }
                         }
-                    } catch (error) {
-                        console.error(`Error updating status:`, error);
-                        // Reset animation classes on error
-                        statusLabel.classList.remove('status-slide-out', 'status-slide-in');
-                        // Clear the timeout flag
-                        statusUpdateTimeout = null;
-                    }
-                }, 150); // Half of the slide out animation duration
+                    }, 250); // Wait for slide out to complete
+                    
+                } catch (error) {
+                    console.error(`Error updating status:`, error);
+                    // Reset animation classes on error
+                    statusLabel.classList.remove('status-slide-out', 'status-slide-in');
+                }
             }
         } else {
             // Status is the same, just update normally without animation
@@ -2908,6 +3317,22 @@ Tips:
                         body: JSON.stringify({ field, value })
                     });
                 }
+                
+                // Clear selected tier if changing from received to any other status
+                if (currentStatus === 'received' && statusKey !== 'received') {
+                    await fetch(`${API_URL}/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ field: 'selected_tier', value: null })
+                    });
+
+                    
+                    // Immediately update the offer object to reflect the cleared tier
+                    if (app.offers[id]) {
+                        app.offers[id].user_controlled.selected_tier = null;
+                    }
+                }
+                
                 const response = await fetch(`${API_URL}/${id}`);
                 const updatedOffer = await response.json();
                 app.offers[id] = updatedOffer;

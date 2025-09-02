@@ -71,6 +71,135 @@ document.addEventListener('DOMContentLoaded', () => {
         return match ? parseFloat(match[1].replace(/,/g, '')) || 0 : 0;
     };
 
+    const parseTierData = (bonusTiersDetailed, totalDepositByTier) => {
+        if (!bonusTiersDetailed || bonusTiersDetailed === 'Single tier' || bonusTiersDetailed === 'N/A' || 
+            String(bonusTiersDetailed).toLowerCase().includes('processing')) {
+            return null;
+        }
+
+        // Clean up the JSON string first
+        let cleanedJson = bonusTiersDetailed;
+        if (typeof cleanedJson === 'string') {
+            // Remove any "json" prefix that might be present (more robust)
+            cleanedJson = cleanedJson.replace(/^json\s*\n?/i, '').trim();
+            // Also handle cases where "json" appears at the start of the actual content
+            if (cleanedJson.startsWith('json\n') || cleanedJson.startsWith('json ')) {
+                cleanedJson = cleanedJson.substring(cleanedJson.indexOf('\n') + 1).trim();
+            }
+            // Fix single quotes to double quotes for valid JSON
+            cleanedJson = cleanedJson.replace(/'/g, '"');
+        }
+
+        try {
+            // Validate JSON structure before parsing
+            if (!cleanedJson || cleanedJson.trim() === '') {
+                console.warn('Empty tier data');
+                return null;
+            }
+            
+            // Try to parse as JSON first
+            const tiers = JSON.parse(cleanedJson);
+            // Clean totalDepositByTier data too
+            let cleanedDeposits = totalDepositByTier;
+            if (cleanedDeposits && cleanedDeposits !== 'Single tier' && 
+                !String(cleanedDeposits).toLowerCase().includes('processing') && 
+                typeof cleanedDeposits === 'string') {
+                cleanedDeposits = cleanedDeposits.replace(/^json\s*\n?/i, '').trim();
+                cleanedDeposits = cleanedDeposits.replace(/'/g, '"');
+            }
+            const deposits = cleanedDeposits && cleanedDeposits !== 'Single tier' ? JSON.parse(cleanedDeposits) : null;
+            
+            // Ensure we have valid tiers array
+            if (!Array.isArray(tiers) || tiers.length === 0) {
+                return null;
+            }
+            
+            return tiers.map(tier => {
+                // Validate tier object structure
+                if (!tier || typeof tier !== 'object') {
+                    console.warn('Invalid tier object:', tier);
+                    return null;
+                }
+                
+                // Handle mixed data types in deposit field
+                let depositAmount = tier.deposit;
+                let depositDescription = null;
+                
+                // If deposit is a string (description), try to extract numeric value
+                if (typeof depositAmount === 'string') {
+                    // Look for dollar amounts in the description
+                    const dollarMatch = depositAmount.match(/\$?([\d,]+)/);
+                    if (dollarMatch) {
+                        const numericValue = parseFloat(dollarMatch[1].replace(',', ''));
+                        if (!isNaN(numericValue)) {
+                            depositDescription = depositAmount;
+                            depositAmount = numericValue;
+                        }
+                    } else {
+                        // No numeric value found, treat as special requirement
+                        depositDescription = depositAmount;
+                        depositAmount = 0; // Use 0 for display purposes
+                    }
+                }
+                
+                return {
+                    tier: tier.tier || 1,
+                    bonus: tier.bonus || 0,
+                    deposit: depositAmount,
+                    depositDescription: depositDescription,
+                    totalDeposit: deposits ? deposits.find(d => d.tier === tier.tier)?.total_deposit : depositAmount
+                };
+            }).filter(tier => tier !== null);
+        } catch (e) {
+            console.warn('Failed to parse tier data as JSON:', e);
+            console.warn('Original data:', bonusTiersDetailed);
+            console.warn('Cleaned data:', cleanedJson);
+            // Fallback to regex parsing if JSON fails
+            const tierPattern = /Tier(\d+):\s*\$?([\d,]+)\s*bonus\s*for\s*\$?([\d,]+)\s*deposit/g;
+            const tiers = [];
+            let match;
+            
+            while ((match = tierPattern.exec(bonusTiersDetailed)) !== null) {
+                tiers.push({
+                    tier: parseInt(match[1]),
+                    bonus: parseFloat(match[2].replace(',', '')),
+                    deposit: parseFloat(match[3].replace(',', '')),
+                    depositDescription: null,
+                    totalDeposit: parseFloat(match[3].replace(',', ''))
+                });
+            }
+            
+            return tiers.length > 0 ? tiers : null;
+        }
+    };
+
+    const getEffectiveBonusAmount = (offer) => {
+        const details = offer.details || {};
+        const bonusAmount = parseBonusAmount(details.bonus_to_be_received);
+        
+        // If the offer is marked as received and has a selected tier, use that tier's bonus
+        if (offer.user_controlled && offer.user_controlled.received && offer.user_controlled.selected_tier) {
+            const selectedTier = offer.user_controlled.selected_tier;
+            
+            // Handle "maximum" tier selection
+            if (selectedTier === 'maximum') {
+                return bonusAmount; // Return the main bonus amount for maximum tier
+            }
+            
+            // Handle regular tier selection
+            const tiers = parseTierData(details.bonus_tiers_detailed, details.total_deposit_by_tier);
+            if (tiers) {
+                const tierData = tiers.find(tier => tier.tier === selectedTier);
+                if (tierData && tierData.bonus) {
+                    return tierData.bonus;
+                }
+            }
+        }
+        
+        // Otherwise, use the main bonus amount
+        return bonusAmount;
+    };
+
     // --- PERSISTENT STORAGE ---
     const STORAGE_KEY = 'planning_settings';
     
@@ -485,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${timeline.map((item, index) => {
                         const { offer, position, start_date, estimated_completion, pay_cycle } = item;
                         const details = offer.details;
-                        const bonus = parseBonusAmount(details.bonus_to_be_received);
+                        const bonus = getEffectiveBonusAmount(offer);
                         const initialDeposit = parseFloat(String(details.initial_deposit_amount).replace(/[^0-9.-]+/g,"")) || 0;
                         const minDeposit = parseFloat(String(details.minimum_deposit_amount).replace(/[^0-9.-]+/g,"")) || 0;
                         const totalDeposit = parseFloat(String(details.total_deposit_required).replace(/[^0-9.-]+/g,"")) || 0;

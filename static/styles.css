@@ -98,6 +98,8 @@ body {
     opacity: 0;
 }
 
+/* Tier selection modal animations - removed duplicates */
+
 /* Continuous spinner animation that doesn't reset */
 .spinner-continuous {
     transform-origin: center;
@@ -528,11 +530,13 @@ input[type="checkbox"].sr-only {
 
 /* Sliding animation for status changes */
 .status-slide-out {
-    animation: slideOutLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: slideOutLeft 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    will-change: transform, opacity;
 }
 
 .status-slide-in {
-    animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: slideInRight 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    will-change: transform, opacity;
 }
 
 @keyframes slideOutLeft {
@@ -542,14 +546,14 @@ input[type="checkbox"].sr-only {
     }
     100% {
         opacity: 0;
-        transform: translateX(-20px);
+        transform: translateX(-15px);
     }
 }
 
 @keyframes slideInRight {
     0% {
         opacity: 0;
-        transform: translateX(20px);
+        transform: translateX(15px);
     }
     100% {
         opacity: 1;
@@ -559,7 +563,8 @@ input[type="checkbox"].sr-only {
 
 /* Pulse animation for status dot */
 .status-dot-pulse {
-    animation: statusPulse 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: statusPulse 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
 }
 
 @keyframes statusPulse {
@@ -567,7 +572,7 @@ input[type="checkbox"].sr-only {
         transform: scale(1);
     }
     50% {
-        transform: scale(1.2);
+        transform: scale(1.15);
     }
     100% {
         transform: scale(1);

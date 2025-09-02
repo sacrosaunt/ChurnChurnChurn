@@ -1,10 +1,11 @@
 import threading
 import time
 import sys
+import queue
 from urllib.parse import urlparse
 from src.utils.utils import normalize_url_for_comparison
 from src.data.data_manager import offers, save_offer
-from src.services.ai_clients import call_gemini, call_ai, flash_model, pro_model, openai_model_default
+from src.services.ai_clients import call_gemini, call_ai, flash_model, pro_model, openai_model_default, OPENAI_ENABLED
 from src.utils.config import FIELD_EXTRACTION_TASKS, CONTEXT_SIZE
 
 def check_existing_accounts_with_same_bank(bank_name, current_offer_id):
@@ -64,7 +65,7 @@ def extract_offer_details_with_ai(summary_content, raw_text, offer_id):
             if param_name and result:
                 completed_queries += 1
                 # Update the current line with progress
-                progress_text = f"🚀 AI Queries Progress: {completed_queries}/{total_queries} completed"
+                progress_text = f"🚀 Tile load progress: {completed_queries}/{total_queries} completed"
                 if completed_queries < total_queries:
                     sys.stdout.write(f"\r{progress_text}")
                     sys.stdout.flush()
@@ -84,13 +85,18 @@ def extract_offer_details_with_ai(summary_content, raw_text, offer_id):
         {summary_content}
         --- SUMMARY TEXT END ---
         """
-        # Try Gemini first if available, otherwise fall back to OpenAI
-        if flash_model:
-            result = call_gemini(full_prompt, flash_model, use_short_tokens=True)
-        else:
-            # Fall back to OpenAI
-            from src.services.ai_clients import call_ai, openai_model_default
-            result = call_ai(full_prompt, openai_model_default, use_short_tokens=True)
+        # Try OpenAI first if available, otherwise fall back to Gemini
+        try:
+            from src.services.ai_clients import flash_model, openai_model_default, OPENAI_ENABLED
+            if OPENAI_ENABLED:
+                result = call_ai(full_prompt, openai_model_default, use_short_tokens=True)
+            elif flash_model:
+                result = call_gemini(full_prompt, flash_model, use_short_tokens=True)
+            else:
+                result = "AI Error: No models available"
+        except Exception as e:
+            print(f"⚠️ Error in AI extraction: {e}")
+            result = "Processing..."
         
         if offer_id in offers and 'details' in offers[offer_id]:
              offers[offer_id]['details'][param_name] = result
@@ -101,7 +107,7 @@ def extract_offer_details_with_ai(summary_content, raw_text, offer_id):
         update_progress(param_name, result)
 
     # Show initial progress
-    print(f"🚀 AI Queries Progress: 0/{total_queries} completed", end="")
+    print(f"🚀 Tile load progress: 0/{total_queries} completed", end="")
     sys.stdout.flush()
 
     threads = []
@@ -112,6 +118,89 @@ def extract_offer_details_with_ai(summary_content, raw_text, offer_id):
 
     for thread in threads:
         thread.join()
+
+    # Validate and potentially update bonus tiers (optional - skip if AI not available)
+    if offer_id in offers:
+        extracted_data = offers[offer_id]['details']
+        
+        # Check if we have bonus tiers and need validation
+        if extracted_data.get('bonus_tiers_detailed') and extracted_data.get('bonus_tiers_detailed') != 'Single tier':
+            try:
+                # Check if AI is available before attempting validation
+                from src.services.ai_clients import flash_model, openai_model_default, OPENAI_ENABLED
+                
+                if not flash_model and not OPENAI_ENABLED:
+                    print("⚠️ Skipping bonus tier validation - no AI clients available")
+                else:
+                    # Create validation prompt with current tiers and maximum bonus
+                    bonus_str = extracted_data.get('bonus_to_be_received', '0')
+                    if bonus_str == 'Processing...' or not bonus_str:
+                        print("⚠️ Skipping bonus tier validation - bonus amount not yet extracted")
+                    else:
+                        try:
+                            max_bonus = float(str(bonus_str).replace(',', '')) or 0
+                        except ValueError:
+                            print(f"⚠️ Skipping bonus tier validation - invalid bonus amount: {bonus_str}")
+                        else:
+                            current_tiers = extracted_data.get('bonus_tiers_detailed', '')
+                            
+                            validation_prompt = f"""
+                            CRITICAL VALIDATION: Review the extracted bonus tiers and ensure ALL possible bonus amounts are captured.
+                            
+                            Maximum Bonus: ${max_bonus}
+                            Current Tiers: {current_tiers}
+                            
+                            If the total maximum bonus is higher than the sum of extracted tiers, create additional tiers to account for the difference. For example: If maximum bonus is $350 but only $100 cash back + $200 direct deposit = $300 total, create a third tier for the remaining $50. If cash back is mentioned as a percentage without a dollar limit, calculate the implied maximum by subtracting other explicit bonuses from the total maximum.
+                            
+                            Format as valid JSON array with DOUBLE QUOTES. If the current tiers already sum to the maximum bonus, respond with 'VALID'.
+                            """
+                            
+                            # Run validation with simple timeout
+                            
+                            # Use a queue to get the result from the thread
+                            result_queue = queue.Queue()
+                            
+                            def run_validation():
+                                try:
+                                    if OPENAI_ENABLED:
+                                        validation_result = call_ai(validation_prompt, openai_model_default, use_short_tokens=True)
+                                    elif flash_model:
+                                        validation_result = call_gemini(validation_prompt, flash_model, use_short_tokens=True)
+                                    else:
+                                        validation_result = "AI Error: No models available"
+                                    result_queue.put(('success', validation_result))
+                                except Exception as e:
+                                    result_queue.put(('error', str(e)))
+                            
+                            # Start validation in a separate thread
+                            validation_thread = threading.Thread(target=run_validation)
+                            validation_thread.daemon = True
+                            validation_thread.start()
+                            
+                            # Wait for result with timeout
+                            try:
+                                result_type, validation_result = result_queue.get(timeout=30)  # 30 second timeout
+                                
+                                if result_type == 'success':
+                                    # If validation found missing tiers, update the bonus_tiers_detailed
+                                    if validation_result and validation_result.strip() != 'VALID' and validation_result.strip() != 'Single tier':
+                                        # Try to parse as JSON to validate
+                                        import json
+                                        try:
+                                            json.loads(validation_result)
+                                            # If it's valid JSON, update the tiers
+                                            offers[offer_id]['details']['bonus_tiers_detailed'] = validation_result
+                                            print(f"✅ Updated bonus tiers based on validation")
+                                        except json.JSONDecodeError:
+                                            print(f"⚠️ Validation result was not valid JSON: {validation_result}")
+                                else:
+                                    print(f"⚠️ Error during bonus tier validation: {validation_result}")
+                                    
+                            except queue.Empty:
+                                print("⚠️ Bonus tier validation timed out, continuing with original tiers")
+                        
+            except Exception as e:
+                print(f"⚠️ Error during bonus tier validation setup: {e}")
 
     if offer_id in offers:
         offers[offer_id]['processing_step'] = "Analyzing Fine Print"

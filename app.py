@@ -195,7 +195,7 @@ def handle_offers():
         
         offers[offer_id] = {
             'id': offer_id, 'url': offer_url,
-            'user_controlled': {'opened': False, 'deposited': False, 'received': False},
+            'user_controlled': {'opened': False, 'deposited': False, 'received': False, 'selected_tier': None},
             'status': 'processing',
             'processing_step': 'Validating Content' if not url else 'Scraping Website',
             'details': {field['param_name']: 'Processing...' for field in FIELD_EXTRACTION_TASKS + [{"param_name": "additional_considerations"}]}
@@ -616,7 +616,11 @@ def handle_single_offer(offer_id):
             save_offer(offer_id)
             return jsonify(offers[offer_id])
         elif field in offers[offer_id]['user_controlled']:
-            offers[offer_id]['user_controlled'][field] = bool(value)
+            # Handle selected_tier specially (it's not a boolean)
+            if field == 'selected_tier':
+                offers[offer_id]['user_controlled'][field] = value
+            else:
+                offers[offer_id]['user_controlled'][field] = bool(value)
             # Save the updated offer to storage
             save_offer(offer_id)
             return jsonify(offers[offer_id])

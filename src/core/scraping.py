@@ -78,13 +78,14 @@ def scrape_and_process_url(url, offer_id):
         {page_text[-CONTEXT_SIZE:]}
         --- RAW TEXT END ---
         """
-        # Try Gemini first if available, otherwise fall back to OpenAI
-        if pro_model:
+        # Try OpenAI first if available, otherwise fall back to Gemini
+        from src.services.ai_clients import call_ai, openai_model_default, OPENAI_ENABLED
+        if OPENAI_ENABLED:
+            summary_content = call_ai(summary_prompt, openai_model_default, use_short_tokens=False)
+        elif pro_model:
             summary_content = call_gemini(summary_prompt, pro_model, use_short_tokens=False)
         else:
-            # Fall back to OpenAI
-            from src.services.ai_clients import call_ai, openai_model_default
-            summary_content = call_ai(summary_prompt, openai_model_default, use_short_tokens=False)
+            summary_content = "AI Error: No models available"
         # Summary created successfully (content not logged to console)
         
         offers[offer_id]['processing_step'] = "Extracting Details"
@@ -168,13 +169,14 @@ def process_manual_content(content, offer_id):
         {page_text[-CONTEXT_SIZE:]}
         --- RAW TEXT END ---
         """
-        # Try Gemini first if available, otherwise fall back to OpenAI
-        if pro_model:
+        # Try OpenAI first if available, otherwise fall back to Gemini
+        from src.services.ai_clients import call_ai, openai_model_default, OPENAI_ENABLED
+        if OPENAI_ENABLED:
+            summary_content = call_ai(summary_prompt, openai_model_default, use_short_tokens=False)
+        elif pro_model:
             summary_content = call_gemini(summary_prompt, pro_model, use_short_tokens=False)
         else:
-            # Fall back to OpenAI
-            from src.services.ai_clients import call_ai, openai_model_default
-            summary_content = call_ai(summary_prompt, openai_model_default, use_short_tokens=False)
+            summary_content = "AI Error: No models available"
         # Summary created successfully (content not logged to console)
         
         offers[offer_id]['processing_step'] = "Extracting Details"
