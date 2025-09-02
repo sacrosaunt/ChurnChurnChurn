@@ -628,7 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
 
         return `
-            <div class="bg-white rounded-lg shadow-md border border-gray-200 p-4 w-80">
+            <div class="bg-white rounded-lg shadow-md border border-gray-200 p-4 w-full lg:w-80">
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-sm font-semibold text-gray-800">Tier Options</span>
                     <span class="text-xs font-medium text-green-600">Up to ${formatValue(displayBonus, 'currency')}</span>
@@ -1420,7 +1420,7 @@ Tips:
         const displayBonus = hasMultipleTiers && Math.abs(tierSum - bonusAmount) <= 10 ? tierSum : bonusAmount;
 
         app.detailView.innerHTML = `
-            <div class="detail-layout flex justify-center">
+            <div class="detail-layout">
                 <!-- Main Content -->
                 <div class="detail-main-content flex-1 max-w-4xl">
                     <header class="mb-8 pt-8">
@@ -1468,11 +1468,16 @@ Tips:
                         </div>
                     </header>
             <div class="space-y-6">
+                <!-- Mobile status + tier panel (top) -->
+                <div class="block lg:hidden space-y-4">
+                    ${createStatusDropdown(offer)}
+                    ${hasMultipleTiers ? createTierDisplay(tiers, displayBonus) : ''}
+                </div>
                 ${offer.status === 'processing' ? `<div class="bg-white p-6 rounded-lg shadow-md">
                      ${createStatusSelector(offer, initialWidth)}
                 </div>` : ''}
 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="metric-tiles-grid">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4" id="metric-tiles-grid">
                     ${createMetricTile(TEXT_CONTENT.detail.initialDeposit, formatValue(details.initial_deposit_amount, 'currency', { fieldName: 'initial_deposit_amount', offerStatus: offer.status }), { fieldName: 'initial_deposit_amount', offerId: offer.id })}
                     ${createMetricTile(TEXT_CONTENT.detail.totalDeposit, formatValue(details.total_deposit_required, 'currency', { fieldName: 'total_deposit_required', offerStatus: offer.status }), { fieldName: 'total_deposit_required', offerId: offer.id })}
                     ${createMetricTile(TEXT_CONTENT.detail.offerExpires, formatValue(details.deal_expiration_date, 'date', { fieldName: 'deal_expiration_date', offerStatus: offer.status, offer: offer }), { fieldName: 'deal_expiration_date', offerId: offer.id })}
@@ -1532,8 +1537,8 @@ Tips:
             </div>
         </div>
 
-        <!-- Status Control -->
-        <div class="fixed right-8 top-8 z-50 space-y-4">
+        <!-- Sidebar (desktop only) -->
+        <div class="hidden lg:block relative space-y-4">
             ${createStatusDropdown(offer)}
             ${hasMultipleTiers ? createTierDisplay(tiers, displayBonus) : ''}
         </div>

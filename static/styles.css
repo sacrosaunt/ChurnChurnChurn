@@ -351,24 +351,28 @@ input[type="checkbox"].sr-only {
 
 /* Detail layout with sidebar */
 .detail-layout {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr minmax(0, 56rem) 220px 1fr;
     gap: 2rem;
     min-height: 100vh;
+    align-items: start;
 }
 
 .detail-main-content {
-    flex: 1;
-    min-width: 0; /* Prevent flex item from overflowing */
+    grid-column: 2;
+    min-width: 0; /* Prevent content overflow */
+    margin-left: auto;
+    margin-right: auto;
 }
 
-/* Position status dropdown as direct child of detail-layout */
+/* Sidebar column placement and behavior */
 .detail-layout > .relative {
+    grid-column: 3;
     width: 220px;
-    flex-shrink: 0;
     height: fit-content;
     position: sticky;
     top: 2rem;
-    padding-top: 8rem; /* Align with main content */
+    padding-top: 0;
 }
 
 /* Status oblong button styles */
@@ -558,15 +562,24 @@ input[type="checkbox"].sr-only {
 
 
 /* Responsive design */
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
     .detail-layout {
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: 1fr minmax(0, 56rem) 1fr;
+        gap: 2rem;
     }
     
+    .detail-main-content {
+        grid-column: 2;
+        grid-row: 2;
+    }
+
     .detail-layout > .relative {
+        grid-column: 2;
+        grid-row: 1;
         width: 100%;
         position: static;
-        margin-top: 2rem;
+        margin-top: 0;
         padding-top: 0;
     }
 }
