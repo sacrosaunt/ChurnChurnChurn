@@ -175,6 +175,27 @@ This information is crucial because many bank offers are restricted to "new cust
         if not result or result.strip() == "" or result.strip().lower() in ["", "none", "nothing"]:
             result = "N/A"
             print("⚠️ Additional considerations returned empty, setting to N/A")
+        else:
+            # Normalize the additional considerations to ensure proper formatting
+            # If the result doesn't contain newlines, try to split by consideration types
+            if '\n' not in result:
+                import re
+                consideration_regex = re.compile(r'(WARNING:|CAUTION:|GOOD:)')
+                parts = consideration_regex.split(result)
+                
+                # Reconstruct with newlines
+                reconstructed = ''
+                for i, part in enumerate(parts):
+                    if re.match(r'^(WARNING:|CAUTION:|GOOD:)$', part):
+                        # This is a consideration type, add it to the reconstructed string
+                        if reconstructed and not reconstructed.endswith('\n'):
+                            reconstructed += '\n'
+                        reconstructed += part
+                    elif part.strip():
+                        # This is the content, add it after the type with a space
+                        reconstructed += ' ' + part.strip()
+                
+                result = reconstructed
             
         offers[offer_id]['details']['additional_considerations'] = result
         print(f"✅ Fine print analysis complete")

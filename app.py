@@ -117,12 +117,8 @@ def handle_offers():
         content = None
         original_url = None
         
-        print(f"🔍 Request data received: {data}")
-        print(f"🔍 Keys in data: {list(data.keys())}")
-        
         if 'url' in data:
             url = data['url'].strip()
-            print(f"🔍 URL mode detected: {url}")
             # Simple regex to check for a valid URL format before proceeding
             url_pattern = re.compile(
                 r'^(https?://)'  # http:// or https://
@@ -133,21 +129,16 @@ def handle_offers():
                 return jsonify({'error': 'Invalid URL. Please enter a full URL starting with http:// or https://.'}), 422
         elif 'content' in data:
             content = data['content'].strip()
-            print(f"🔍 Manual mode detected. Content length: {len(content)}")
             if not content:
                 return jsonify({'error': 'Content is required for manual mode'}), 400
             # Check if there's an original URL associated with this manual submission
             if 'original_url' in data:
                 original_url = data['original_url'].strip()
-                print(f"🔍 Original URL for manual mode: {original_url}")
         else:
-            print(f"🔍 Neither URL nor content found in request data")
             return jsonify({'error': 'Either URL or content is required'}), 400
 
         # Handle refresh requests
         if refresh_offer_id:
-            print(f"🔄 Refresh request received for offer ID: {refresh_offer_id} (type: {type(refresh_offer_id)})")
-            print(f"📋 Available offer IDs: {list(offers.keys())}")
             
             # Convert to integer if it's a string
             try:
@@ -200,13 +191,8 @@ def handle_offers():
 
         offer_id = get_next_available_offer_id()
         
-        print(f"🔍 Creating offer with ID: {offer_id}")
-        print(f"🔍 Offer type: {'URL' if url else 'Manual Content'}")
-        print(f"🔍 Content length: {len(content) if content else 'N/A'}")
-        
         # Create offer with appropriate URL or placeholder
         offer_url = url if url else (original_url if original_url else f"manual-content-{offer_id}")
-        print(f"🔍 Offer URL set to: {offer_url}")
         
         offers[offer_id] = {
             'id': offer_id, 'url': offer_url,
@@ -577,7 +563,31 @@ This information is crucial because many bank offers are restricted to "new cust
             
             offers[offer_id]['details'][field_name] = cleaned_result
         else:
-            offers[offer_id]['details'][field_name] = final_result.strip()
+            # Special handling for additional_considerations to ensure proper formatting
+            if field_name == 'additional_considerations':
+                result = final_result.strip()
+                # If the result doesn't contain newlines, try to split by consideration types
+                if '\n' not in result:
+                    consideration_regex = re.compile(r'(WARNING:|CAUTION:|GOOD:)')
+                    parts = consideration_regex.split(result)
+                    
+                    # Reconstruct with newlines
+                    reconstructed = ''
+                    for i, part in enumerate(parts):
+                        if re.match(r'^(WARNING:|CAUTION:|GOOD:)$', part):
+                            # This is a consideration type, add it to the reconstructed string
+                            if reconstructed and not reconstructed.endswith('\n'):
+                                reconstructed += '\n'
+                            reconstructed += part
+                        elif part.strip():
+                            # This is the content, add it after the type with a space
+                            reconstructed += ' ' + part.strip()
+                    
+                    result = reconstructed
+                
+                offers[offer_id]['details'][field_name] = result
+            else:
+                offers[offer_id]['details'][field_name] = final_result.strip()
         
         # Save the updated offer to storage
         save_offer(offer_id)

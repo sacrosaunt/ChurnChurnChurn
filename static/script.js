@@ -165,7 +165,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const considerationGroups = { WARNING: [], CAUTION: [], GOOD: [] };
             
             // Handle both literal \n strings and actual newlines, and normalize whitespace
-            const normalizedData = data.replace(/\\n/g, '\n').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            let normalizedData = data.replace(/\\n/g, '\n').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            
+            // If the data doesn't contain newlines, try to split by consideration types
+            if (!normalizedData.includes('\n')) {
+                // Split by consideration types (WARNING:, CAUTION:, GOOD:)
+                const considerationRegex = /(WARNING:|CAUTION:|GOOD:)/g;
+                const parts = normalizedData.split(considerationRegex);
+                
+                // Reconstruct with newlines
+                let reconstructed = '';
+                for (let i = 0; i < parts.length; i++) {
+                    if (parts[i].match(/^(WARNING:|CAUTION:|GOOD:)$/)) {
+                        // This is a consideration type, add it to the reconstructed string
+                        if (reconstructed && !reconstructed.endsWith('\n')) {
+                            reconstructed += '\n';
+                        }
+                        reconstructed += parts[i];
+                    } else if (parts[i].trim()) {
+                        // This is the content, add it after the type with a space
+                        reconstructed += ' ' + parts[i].trim();
+                    }
+                }
+                normalizedData = reconstructed;
+            }
+            
             const lines = normalizedData.split('\n');
             
             lines.forEach((item, index) => {
@@ -1072,7 +1096,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const steps = isManualMode ? TEXT_CONTENT.manualProcessingSteps : TEXT_CONTENT.processingSteps;
                 let currentStepIndex = steps.indexOf(offer.processing_step);
                 if (currentStepIndex === -1) {
-                    currentStepIndex = 0;
+                    // Handle error states that aren't in the normal flow
+                    if (offer.processing_step === "Validation Failed" || 
+                        offer.processing_step === "Scraping Failed" || 
+                        offer.processing_step === "Processing Error") {
+                        // For error states, show as the last step before "Done"
+                        currentStepIndex = steps.length - 2; // Second to last step
+                    } else {
+                        currentStepIndex = 0;
+                    }
                 }
 
                 // Ensure "Done" step shows 100% progress
@@ -2058,7 +2090,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             const steps = isManualMode ? TEXT_CONTENT.manualProcessingSteps : TEXT_CONTENT.processingSteps;
                             let currentStepIndex = steps.indexOf(newOffer.processing_step);
                             if (currentStepIndex === -1) {
-                                currentStepIndex = 0;
+                                // Handle error states that aren't in the normal flow
+                                if (newOffer.processing_step === "Validation Failed" || 
+                                    newOffer.processing_step === "Scraping Failed" || 
+                                    newOffer.processing_step === "Processing Error") {
+                                    // For error states, show as the last step before "Done"
+                                    currentStepIndex = steps.length - 2; // Second to last step
+                                } else {
+                                    currentStepIndex = 0;
+                                }
                             }
                             const progressPercentage = newOffer.processing_step === "Done" ? 100 : ((currentStepIndex + 1) / steps.length) * 100;
                             progressBar.style.width = `${progressPercentage}%`;
