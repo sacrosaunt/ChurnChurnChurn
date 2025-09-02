@@ -1679,7 +1679,7 @@ Tips:
 
                     if (statusUpdateTimeout) return;
 
-                    updateOfferStatus(id, status);
+                    updateOfferStatus(id, status, trigger);
                     menu.classList.remove('show');
                     menu.classList.add('hidden');
                     if (chevron) chevron.classList.remove('rotated');
@@ -2743,9 +2743,10 @@ Tips:
     // Debounce status updates to prevent rapid successive calls
     let statusUpdateTimeout = null;
     
-    const updateOfferStatus = async (id, statusKey) => {
+    const updateOfferStatus = async (id, statusKey, triggerElement = null) => {
         // Check if this offer is already being updated
         if (offerUpdateLocks.has(id)) {
+            console.log(`Offer ${id} is already being updated, skipping...`);
             return;
         }
         
@@ -2756,6 +2757,7 @@ Tips:
             // Clear any pending status update
             if (statusUpdateTimeout) {
                 clearTimeout(statusUpdateTimeout);
+                statusUpdateTimeout = null;
             }
             
             // Get current status before updating
@@ -2764,18 +2766,17 @@ Tips:
             
             // Only animate if status is actually changing
             if (currentStatus !== statusKey) {
-                // Prevent multiple simultaneous updates
-                if (statusUpdateTimeout) {
-                    return;
-                }
+                console.log('Status is changing, attempting animation...', { currentStatus, statusKey, triggerElement: !!triggerElement });
             
             // Trigger sliding animation
-            const statusDot = document.querySelector('.status-dropdown-trigger .status-dot');
-            const statusLabel = document.querySelector('.status-dropdown-trigger .status-label');
+            const statusDot = triggerElement ? triggerElement.querySelector('.status-dot') : document.querySelector('.status-dropdown-trigger .status-dot');
+            const statusLabel = triggerElement ? triggerElement.querySelector('.status-label') : document.querySelector('.status-dropdown-trigger .status-label');
+            
+            console.log('Found elements:', { statusDot: !!statusDot, statusLabel: !!statusLabel });
             
             if (statusDot && statusLabel) {
-                // Add slide out animation
-                statusDot.classList.add('status-slide-out');
+                console.log('Adding slide-out animation classes');
+                // Add slide out animation for label only, pulse for dot
                 statusLabel.classList.add('status-slide-out');
                 
                 // Wait for slide out to complete, then update and slide in
@@ -2825,7 +2826,9 @@ Tips:
                             statusLabel.textContent = newStatusData.label;
                             
                             // Update dropdown options to reflect new current status
-                            document.querySelectorAll('.status-dropdown-option').forEach(option => {
+                            const wrapper = triggerElement ? triggerElement.closest('.relative') : null;
+                            const optionsToUpdate = wrapper ? wrapper.querySelectorAll('.status-dropdown-option') : document.querySelectorAll('.status-dropdown-option');
+                            optionsToUpdate.forEach(option => {
                                 const optionStatus = option.dataset.status;
                                 const isCurrent = optionStatus === newStatus;
                                 
@@ -2855,15 +2858,14 @@ Tips:
                                 }
                             });
                             
-                            // Add slide in animation and pulse
-                            statusDot.classList.remove('status-slide-out');
+                            // Add slide in animation for label and pulse for dot
                             statusLabel.classList.remove('status-slide-out');
-                            statusDot.classList.add('status-slide-in', 'status-dot-pulse');
+                            statusDot.classList.add('status-dot-pulse');
                             statusLabel.classList.add('status-slide-in');
                             
                             // Clean up animation classes after completion
                             setTimeout(() => {
-                                statusDot.classList.remove('status-slide-in', 'status-dot-pulse');
+                                statusDot.classList.remove('status-dot-pulse');
                                 statusLabel.classList.remove('status-slide-in');
                                 // Clear the timeout flag
                                 statusUpdateTimeout = null;
@@ -2872,7 +2874,6 @@ Tips:
                     } catch (error) {
                         console.error(`Error updating status:`, error);
                         // Reset animation classes on error
-                        statusDot.classList.remove('status-slide-out', 'status-slide-in');
                         statusLabel.classList.remove('status-slide-out', 'status-slide-in');
                         // Clear the timeout flag
                         statusUpdateTimeout = null;
