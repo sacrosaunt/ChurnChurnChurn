@@ -1,11 +1,46 @@
 import requests
 import random
 import time
+import logging
 from bs4 import BeautifulSoup
 from src.data.data_manager import offers, save_offer
 from src.services.ai_clients import is_banking_offer_page, call_gemini, pro_model
 from src.core.offer_processing import extract_offer_details_with_ai
 from src.utils.config import USER_AGENTS, CONTEXT_SIZE
+
+logger = None
+
+_SCRAPE_SEMAPHORE = None
+
+def _get_scrape_semaphore():
+    global _SCRAPE_SEMAPHORE
+    if _SCRAPE_SEMAPHORE is None:
+        import threading
+        # Limit concurrent scrapes to reduce rate limiting
+        _SCRAPE_SEMAPHORE = threading.Semaphore(4)
+    return _SCRAPE_SEMAPHORE
+
+def _http_get_with_retry(session, url, headers, timeout=15, max_retries=3, backoff_base=0.8):
+    last_exc = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = session.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+            # Explicit 429 handling
+            if resp.status_code == 429:
+                retry_after = resp.headers.get('Retry-After')
+                sleep_s = float(retry_after) if retry_after and retry_after.isdigit() else backoff_base * (2 ** (attempt - 1)) + random.random()
+                logger.warning(f"HTTP 429 received for {url}. Backing off {sleep_s:.2f}s (attempt {attempt}/{max_retries})")
+                time.sleep(sleep_s)
+                continue
+            resp.raise_for_status()
+            return resp
+        except requests.RequestException as exc:
+            last_exc = exc
+            sleep_s = backoff_base * (2 ** (attempt - 1)) + random.random()
+            logger.warning(f"Request error for {url}: {exc}. Retry in {sleep_s:.2f}s (attempt {attempt}/{max_retries})")
+            time.sleep(sleep_s)
+    if last_exc:
+        raise last_exc
 
 def scrape_and_process_url(url, offer_id):
     """Scrapes, summarizes, and triggers the AI extraction process."""
@@ -23,8 +58,9 @@ def scrape_and_process_url(url, offer_id):
             'Upgrade-Insecure-Requests': '1',
             'DNT': '1',
         }
-        response = session.get(url, headers=headers, timeout=15, allow_redirects=True)
-        response.raise_for_status()
+        # Limit concurrency and add retry/backoff
+        with _get_scrape_semaphore():
+            response = _http_get_with_retry(session, url, headers, timeout=15, max_retries=4, backoff_base=1.0)
 
         offers[offer_id]['processing_step'] = "Validating Offer"
 
@@ -101,7 +137,7 @@ def scrape_and_process_url(url, offer_id):
             # Save the failed offer to storage
             save_offer(offer_id)
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print(f"An unexpected error occurred processing offer {offer_id} from {url}: {e}")
         if offer_id in offers:
             offers[offer_id]['status'] = 'failed'
             offers[offer_id]['processing_step'] = "Processing Error"

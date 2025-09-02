@@ -5,7 +5,8 @@ import queue
 from urllib.parse import urlparse
 from src.utils.utils import normalize_url_for_comparison
 from src.data.data_manager import offers, save_offer
-from src.services.ai_clients import call_gemini, call_ai, flash_model, pro_model, openai_model_default, OPENAI_ENABLED
+from src.services.ai_clients import call_gemini, call_ai
+from src.services import ai_clients
 from src.utils.config import FIELD_EXTRACTION_TASKS, CONTEXT_SIZE
 
 def check_existing_accounts_with_same_bank(bank_name, current_offer_id):
@@ -87,11 +88,10 @@ def extract_offer_details_with_ai(summary_content, raw_text, offer_id):
         """
         # Try OpenAI first if available, otherwise fall back to Gemini
         try:
-            from src.services.ai_clients import flash_model, openai_model_default, OPENAI_ENABLED
-            if OPENAI_ENABLED:
-                result = call_ai(full_prompt, openai_model_default, use_short_tokens=True)
-            elif flash_model:
-                result = call_gemini(full_prompt, flash_model, use_short_tokens=True)
+            if ai_clients.OPENAI_ENABLED:
+                result = call_ai(full_prompt, ai_clients.openai_model_default, use_short_tokens=True)
+            elif ai_clients.flash_model:
+                result = call_gemini(full_prompt, ai_clients.flash_model, use_short_tokens=True)
             else:
                 result = "AI Error: No models available"
         except Exception as e:
@@ -127,9 +127,7 @@ def extract_offer_details_with_ai(summary_content, raw_text, offer_id):
         if extracted_data.get('bonus_tiers_detailed') and extracted_data.get('bonus_tiers_detailed') != 'Single tier':
             try:
                 # Check if AI is available before attempting validation
-                from src.services.ai_clients import flash_model, openai_model_default, OPENAI_ENABLED
-                
-                if not flash_model and not OPENAI_ENABLED:
+                if not ai_clients.flash_model and not ai_clients.OPENAI_ENABLED:
                     print("⚠️ Skipping bonus tier validation - no AI clients available")
                 else:
                     # Create validation prompt with current tiers and maximum bonus
@@ -162,10 +160,10 @@ def extract_offer_details_with_ai(summary_content, raw_text, offer_id):
                             
                             def run_validation():
                                 try:
-                                    if OPENAI_ENABLED:
-                                        validation_result = call_ai(validation_prompt, openai_model_default, use_short_tokens=True)
-                                    elif flash_model:
-                                        validation_result = call_gemini(validation_prompt, flash_model, use_short_tokens=True)
+                                    if ai_clients.OPENAI_ENABLED:
+                                        validation_result = call_ai(validation_prompt, ai_clients.openai_model_default, use_short_tokens=True)
+                                    elif ai_clients.flash_model:
+                                        validation_result = call_gemini(validation_prompt, ai_clients.flash_model, use_short_tokens=True)
                                     else:
                                         validation_result = "AI Error: No models available"
                                     result_queue.put(('success', validation_result))
@@ -257,7 +255,7 @@ This information is crucial because many bank offers are restricted to "new cust
         """
         
 
-        model_for_considerations = openai_model_default if openai_model_default else flash_model
+        model_for_considerations = ai_clients.openai_model_default if ai_clients.OPENAI_ENABLED else ai_clients.flash_model
         result = call_ai(considerations_prompt, model_for_considerations, use_short_tokens=False)
         
         # Ensure we have a meaningful response

@@ -35,7 +35,7 @@ load_dotenv()
 # Initialize clients on startup
 initialize_ai_clients()
 
-# Configure logging to suppress 200 level status logs
+# Reduce werkzeug request logging noise
 logging.getLogger('werkzeug').setLevel(logging.WARNING)
 
 # --- Flask App ---
