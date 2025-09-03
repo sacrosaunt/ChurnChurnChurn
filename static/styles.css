@@ -7,6 +7,11 @@ body {
     color: #6b7280; 
 }
 
+.status-unopened-expired { 
+    background-color: #e5e7eb; 
+    color: #9ca3af; 
+}
+
 .status-pending-deposit { 
     background-color: #fef3c7; 
     color: #f59e0b; 

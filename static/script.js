@@ -347,6 +347,37 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 
+    const isOfferExpired = (offer) => {
+        const details = offer.details || {};
+        const dateString = details.deal_expiration_date;
+        
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+            return false; // Not a valid date, can't be expired
+        }
+        
+        const expirationDate = new Date(dateString + 'T00:00:00Z');
+        if (isNaN(expirationDate.getTime())) {
+            return false;
+        }
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const daysUntilExpiration = Math.ceil((expirationDate - today) / (1000 * 60 * 60 * 24));
+        return daysUntilExpiration <= 0;
+    };
+
+    const isExpiredAndUnopened = (offer) => {
+        // Check if offer is unopened
+        const userControlled = offer.user_controlled || { opened: false, deposited: false, received: false };
+        const isUnopened = !userControlled.opened && !userControlled.deposited && !userControlled.received;
+        
+        // Check if offer is expired
+        const isExpired = isOfferExpired(offer);
+        
+        return isUnopened && isExpired;
+    };
+
     const getExpirationColor = (dateString, offer = null) => {
         // Check if this is an offer that should have greyed out expiration
         if (offer && offer.user_controlled && (offer.user_controlled.deposited || offer.user_controlled.received)) {
@@ -941,6 +972,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (userControlled.received) return { status: 'claimed', statusClass: 'status-claimed', statusText: TEXT_CONTENT.status.claimed };
         if (userControlled.deposited) return { status: 'waiting', statusClass: 'status-waiting', statusText: TEXT_CONTENT.status.waiting };
         if (userControlled.opened) return { status: 'pending-deposit', statusClass: 'status-pending-deposit', statusText: TEXT_CONTENT.status.pendingDeposit };
+        
+        // Check if unopened offer is expired
+        if (isExpiredAndUnopened(offer)) {
+            return { status: 'unopened', statusClass: 'status-unopened-expired', statusText: TEXT_CONTENT.status.unopened };
+        }
+        
         return { status: 'unopened', statusClass: 'status-unopened', statusText: TEXT_CONTENT.status.unopened };
     };
 
@@ -1120,9 +1157,21 @@ document.addEventListener('DOMContentLoaded', () => {
             groupedOffers[statusKey].offers.push(offer);
         });
 
-        // Sort offers within each status group by bonus amount (descending)
+        // Sort offers within each status group
         Object.keys(groupedOffers).forEach(statusKey => {
             groupedOffers[statusKey].offers.sort((a, b) => {
+                // For unopened offers, sort expired ones to the end
+                if (statusKey === 'unopened') {
+                    const aExpired = isExpiredAndUnopened(a);
+                    const bExpired = isExpiredAndUnopened(b);
+                    
+                    // If one is expired and the other isn't, put non-expired first
+                    if (aExpired !== bExpired) {
+                        return aExpired ? 1 : -1; // Non-expired first
+                    }
+                }
+                
+                // Then sort by bonus amount (descending)
                 const bonusA = getEffectiveBonusAmount(a);
                 const bonusB = getEffectiveBonusAmount(b);
                 return bonusB - bonusA; // Descending order (highest bonus first)
@@ -1183,7 +1232,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const { statusClass, statusText } = getOfferStatus(offer);
         const tile = document.createElement('a');
         tile.href = `#/offer/${offer.id}`;
-        tile.className = 'block bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-300 transition-all duration-200 p-4';
+        
+        // Check if offer is expired and unopened to apply grey styling
+        const isExpiredUnopened = isExpiredAndUnopened(offer);
+        const baseClasses = 'block rounded-lg shadow-sm border transition-all duration-200 p-4';
+        const normalClasses = 'bg-white border-gray-200 hover:shadow-md hover:border-blue-300';
+        const expiredClasses = 'bg-gray-100 border-gray-300 hover:shadow-sm hover:border-gray-400 opacity-60';
+        
+        tile.className = `${baseClasses} ${isExpiredUnopened ? expiredClasses : normalClasses}`;
         
         // Defensive check for offer.details
         const details = offer.details || {};
@@ -1199,14 +1255,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const tierSum = tiers ? tiers.reduce((sum, t) => sum + t.bonus, 0) : 0;
         const displayBonus = hasMultipleTiers && Math.abs(tierSum - effectiveBonusAmount) <= 10 ? tierSum : effectiveBonusAmount;
 
+        // Apply grey styling to text elements for expired unopened offers
+        const bankNameColorClass = isExpiredUnopened ? 'text-gray-500' : 'text-blue-600';
+        const accountTitleColorClass = isExpiredUnopened ? 'text-gray-500' : 'text-gray-900';
+        const bonusColorClass = isExpiredUnopened ? 'text-gray-500' : 'text-green-600';
+        const expirationColorClass = isExpiredUnopened ? 'text-gray-400' : 'text-gray-500';
+
         tile.innerHTML = `
             <div class="flex flex-col h-full">
                 <div class="flex items-start justify-between mb-3">
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold text-blue-600 truncate" data-field="bank_name">
+                        <p class="text-sm font-semibold ${bankNameColorClass} truncate" data-field="bank_name">
                             ${formatValue(details.bank_name, 'text', { skeletonOptions: { width: 'w-24', alignClass: '' }, offerStatus: offer.status, fieldName: 'bank_name' })}
                         </p>
-                        <h3 class="text-lg font-bold text-gray-900 truncate leading-tight" data-field="account_title">
+                        <h3 class="text-lg font-bold ${accountTitleColorClass} truncate leading-tight" data-field="account_title">
                             ${formatValue(details.account_title, 'text', { skeletonOptions: { width: 'w-32', alignClass: '' }, offerStatus: offer.status, fieldName: 'account_title' })}
                         </h3>
                     </div>
@@ -1216,7 +1278,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 
                 <div class="flex-1 mb-3">
-                    <div class="text-2xl font-bold text-green-600 mb-2" data-field="bonus_to_be_received">
+                    <div class="text-2xl font-bold ${bonusColorClass} mb-2" data-field="bonus_to_be_received">
                         ${(() => {
                             // Check if bonus value is available (not processing)
                             const bonusValue = details.bonus_to_be_received;
@@ -1225,7 +1287,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (isBonusAvailable) {
                                 // If we have multiple tiers and they're available, show tier display
                                 if (hasMultipleTiers && details.bonus_tiers_detailed && !String(details.bonus_tiers_detailed).toLowerCase().includes('processing')) {
-                                    return `<div class="text-sm font-normal text-gray-900 mb-0.5">Up to</div><div class="text-2xl font-bold text-green-600">${formatValue(displayBonus, 'currency')}</div>`;
+                                    const tierTextColorClass = isExpiredUnopened ? 'text-gray-500' : 'text-gray-900';
+                                    const tierBonusColorClass = isExpiredUnopened ? 'text-gray-500' : 'text-green-600';
+                                    return `<div class="text-sm font-normal ${tierTextColorClass} mb-0.5">Up to</div><div class="text-2xl font-bold ${tierBonusColorClass}">${formatValue(displayBonus, 'currency')}</div>`;
                                 } else {
                                     // Show single bonus value
                                     return formatValue(bonusValue, 'currency');
@@ -1238,7 +1302,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
                 
-                <div class="text-sm text-gray-500 flex items-center">
+                <div class="text-sm ${expirationColorClass} flex items-center">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                     </svg>
@@ -1255,6 +1319,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const getStatusKey = (offer) => {
         const { statusClass } = getOfferStatus(offer);
+        // Treat expired unopened offers as regular unopened for grouping purposes
+        if (statusClass === 'status-unopened-expired') {
+            return 'unopened';
+        }
         return statusClass.replace('status-', '').replace(' ', '_');
     };
 
